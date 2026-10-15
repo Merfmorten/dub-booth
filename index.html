@@ -727,7 +727,11 @@ const takeTotal = t => t?.judges ? t.judges.reduce((a, j) => a + j.s, 0) : 0;
 const PREFIX = 'dubbooth-v1-';
 const NET = { peer: null, conns: new Map(), hostConn: null, code: '', status: 'offline' };
 function peerOpts() {
-  const o = { debug: 0, config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }] } };
+  const o = { debug: 0, config: { iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' },
+      // free relay for players whose networks block direct connections (best effort)
+      { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }
+    ] } };
   const custom = new URLSearchParams(location.search).get('peer');   // e.g. ?peer=localhost:9000 for a self-hosted PeerJS server
   if (custom) { const [host, port] = custom.split(':'); Object.assign(o, { host, port: +port || 9000, path: '/', secure: location.protocol === 'https:' }); }
   return o;
@@ -744,21 +748,29 @@ const sendTo = (conn, msg) => { try { if (conn?.open) conn.send(msg); } catch (e
 /* ---------- HOST ---------- */
 function hostStart() {
   if (!window.Peer) { setNet('error', 'no network lib'); return; }
-  NET.code = randCode();
+  // keep the same invite code for the whole game, so the link friends already have keeps working
+  if (!NET.code) NET.code = randCode();
   setNet('connecting', 'connecting…');
   const peer = NET.peer = new Peer(PREFIX + NET.code, peerOpts());
-  peer.on('open', () => { setNet('online', 'online'); renderLobby(); });
+  let retries = 0, retryT = 0;
+  peer.on('open', () => { retries = 0; setNet('online', 'online'); renderLobby(); });
   peer.on('connection', hostConn);
-  let tries = 0;
-  peer.on('open', () => { tries = 0; });
+  // the matchmaking server can drop us; re-register with the same ID (keeps trying for a few minutes)
   peer.on('disconnected', () => {
-    if (tries++ > 6) { setNet('error', 'can\'t reach server'); renderLobby(); return; }
-    setNet('connecting', 'reconnecting…'); setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch {} }, 1500 * tries);
+    if (peer.destroyed) return;
+    setNet('connecting', 'reconnecting…');
+    clearTimeout(retryT);
+    retryT = setTimeout(() => { try { peer.reconnect(); } catch {} }, Math.min(15000, 1000 * (++retries)));
+    if (retries > 120) { setNet('error', 'can\'t reach server'); renderLobby(); }
   });
   peer.on('error', e => {
     console.warn('peer error', e.type, e);
-    if (e.type === 'unavailable-id') { peer.destroy(); hostStart(); }
-    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) { setNet('error', 'can\'t reach server'); renderLobby(); }
+    if (e.type === 'unavailable-id') {
+      // our old registration is still on the server; wait and claim the same ID again
+      try { peer.destroy(); } catch {}
+      setTimeout(() => { if (NET.code) hostStart(); }, 3000);
+    }
+    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) { setNet('connecting', 'reconnecting…'); renderLobby(); }
   });
 }
 function hostConn(conn) {
@@ -826,28 +838,37 @@ function parseCode(s) {
   const m = s.match(/join=([a-z0-9]+)/i);
   return (m ? m[1] : s).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
-function guestJoin(code, name) {
+function guestJoin(code, name, attempt = 1) {
+  const MAX = 3;
   if (!window.Peer) return joinErr('The network library didn\'t load. Check your internet connection.');
   if (NET.peer) { try { NET.peer.destroy(); } catch {} }
   setNet('connecting', 'connecting…');
-  $('#joinBtn').disabled = true; joinErr('Connecting…');
+  $('#joinBtn').disabled = true;
+  joinErr(attempt === 1 ? 'Connecting…' : `Still trying to reach the host (attempt ${attempt} of ${MAX})…`);
   const peer = NET.peer = new Peer(peerOpts());
-  const fail = msg => { $('#joinBtn').disabled = false; joinErr(msg); setNet('error', 'not connected'); };
-  const giveUp = setTimeout(() => { if (!S.inGame) fail('No answer from the host. Make sure their game page is still open, then try again.'); }, 15000);
+  let done = false;
+  const retryOrFail = msg => {
+    if (done || S.inGame) return; done = true;
+    try { peer.destroy(); } catch {}
+    if (attempt < MAX) return setTimeout(() => guestJoin(code, name, attempt + 1), 2000);
+    $('#joinBtn').disabled = false; joinErr(msg); setNet('error', 'not connected');
+  };
+  const giveUp = setTimeout(() => retryOrFail('No answer from the host. Make sure their game page is still open and hasn\'t been refreshed, then try again.'), 25000);
   peer.on('open', () => {
     const conn = NET.hostConn = peer.connect(PREFIX + code, { reliable: true });
     conn.on('open', () => sendTo(conn, { t: 'hello', name }));
-    conn.on('data', m => { clearTimeout(giveUp); guestOnMsg(m); });
+    conn.on('data', m => { clearTimeout(giveUp); done = true; guestOnMsg(m); });
     conn.on('close', () => {
-      if (!S.inGame) return;
+      if (!S.inGame) return retryOrFail('The host closed the game.');
       setNet('error', 'disconnected');
       showBanner('Lost connection to the host.', 'Reconnect', () => { location.hash = 'join=' + code; guestJoin(code, S.me.name); });
     });
   });
   peer.on('error', e => {
     console.warn('peer error', e.type, e);
-    if (e.type === 'peer-unavailable') { clearTimeout(giveUp); fail('Couldn\'t find that game. Check the code, and make sure the host still has the game open.'); }
-    else if (!S.inGame) { clearTimeout(giveUp); fail('Couldn\'t connect (' + e.type + '). Check your internet and try again.'); }
+    clearTimeout(giveUp);
+    if (e.type === 'peer-unavailable') retryOrFail('Couldn\'t find that game. Check the code, and make sure the host still has the game open.');
+    else if (!S.inGame) retryOrFail('Couldn\'t connect (' + e.type + '). Check your internet and try again.');
   });
 }
 function joinErr(msg) { $('#joinErr').textContent = msg; }
@@ -1266,7 +1287,7 @@ async function getMic(force = false) {
   if (!inGain) {
     inGain = ctx.createGain(); analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
     // ScriptProcessor works in every browser; playbackTime tells us where each block sits on the audio clock
-    const BS = 2048;
+    const BS = 4096;   // bigger blocks = fewer callbacks, so a busy page drops fewer samples
     capNode = ctx.createScriptProcessor(BS, 1, 1); monGain = ctx.createGain();
     capNode.onaudioprocess = e => onCapChunk({ f: Math.round(e.playbackTime * ctx.sampleRate) - BS, d: e.inputBuffer.getChannelData(0) });
     const sink = ctx.createGain(); sink.gain.value = 0;          // keeps the capture node running, silently
@@ -1442,12 +1463,13 @@ function drawWave(playT = null) {
 }
 function waveLoop() {
   cancelAnimationFrame(WAVE.anim);
-  const tick = () => {
+  let last = 0;
+  const tick = now => {
     if (recState !== 'rec') { drawWave(); return; }
-    drawWave(clamp(AC.currentTime - CAP.t0, 0, CAP.dur));
+    if (now - last > 33) { last = now; drawWave(clamp(AC.currentTime - CAP.t0, 0, CAP.dur)); }
     WAVE.anim = requestAnimationFrame(tick);
   };
-  tick();
+  tick(0);
 }
 function animateWave(dur) {
   cancelAnimationFrame(WAVE.anim);
@@ -1641,7 +1663,11 @@ function drawCaption(g, t) {
     g.fillText(txt, W / 2, y, W - 40);
   });
 }
-function fitCanvas(c) { const w = V.ok ? V.w : 1280, h = V.ok ? V.h : 720; if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
+function fitCanvas(c) {
+  let w = V.ok ? V.w : 1280, h = V.ok ? V.h : 720;
+  if (c.id === 'stageCv' && w > 640) { h = Math.round(h * 640 / w); w = 640; }   // the booth preview doesn't need full HD
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+}
 const showTime = () => P.running ? AC.currentTime - P.t0 + P.offset : P.offset;
 function computeDur() {
   const p = S.pack;
