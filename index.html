@@ -1,0 +1,1612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dub Booth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c0a0f; --bg2:#15121a; --panel:#1b1722; --line:#2c2636; --text:#f2ecf6; --dim:#9a8fa6;
+  --red:#ff3d57; --red2:#ff6f81; --amber:#ffb547; --green:#4ce0a0;
+  --r:14px; --sans:"Bricolage Grotesque",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
+body{min-height:100vh;background:radial-gradient(1200px 600px at 80% -10%,#2a1020 0%,transparent 60%),var(--bg)}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:.6em 1em;transition:.15s}
+button:hover:not(:disabled){border-color:#4a405a;background:#231e2c}
+button:disabled{opacity:.4;cursor:not-allowed}
+input[type=text]{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:.65em .8em;width:100%}
+input[type=text]:focus{outline:none;border-color:var(--red)}
+kbd{font-family:var(--mono);font-size:.7em;opacity:.55;border:1px solid currentColor;border-radius:4px;padding:0 .3em;margin-left:.4em}
+.top{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(12,10,15,.88);backdrop-filter:blur(8px);z-index:5;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.08em}
+.onair{font-family:var(--mono);font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;border:1.5px solid #4a2630;color:#6b3440;letter-spacing:.15em;transition:.2s}
+.onair.live{color:#fff;background:var(--red);border-color:var(--red);box-shadow:0 0 18px var(--red),0 0 40px rgba(255,61,87,.4);animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 8px var(--red)}}
+.steps{display:flex;gap:4px;margin-left:auto;align-items:center;flex-wrap:wrap}
+.steps button{background:transparent;border-color:transparent;color:var(--dim);padding:.45em .8em}
+.steps button.on{color:var(--text);border-color:var(--line);background:var(--panel)}
+.steps .sep{color:#3a3246}
+.netdot{font-family:var(--mono);font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.netdot i{width:8px;height:8px;border-radius:50%;background:#555;display:inline-block}
+.netdot.ok i{background:var(--green);box-shadow:0 0 8px var(--green)}
+.netdot.warn i{background:var(--amber)}
+.netdot.bad i{background:var(--red)}
+main{max-width:1240px;margin:0 auto;padding:24px 16px 60px}
+.screen[hidden]{display:none}
+h1{font-size:clamp(30px,5vw,54px);line-height:1;margin:.2em 0 .3em;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--red)}
+h2{margin:0 0 .3em;font-size:28px;line-height:1.1}
+h3{margin:0 0 .8em;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.sub{color:var(--dim);max-width:62ch;line-height:1.5}
+.meta{color:var(--dim);font-size:13px;line-height:1.5}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:.4em;cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:.6em 1em}
+.btn:hover{border-color:#4a405a}
+.primary{background:var(--red)!important;border-color:var(--red)!important;color:#fff;font-weight:600}
+.primary:hover:not(:disabled){background:var(--red2)!important;border-color:var(--red2)!important}
+.big{font-size:18px;padding:.8em 1.4em;border-radius:12px}
+.wide{width:100%}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.panel.hot{border-color:var(--red);box-shadow:0 0 0 1px var(--red),0 10px 40px rgba(255,61,87,.15)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:2px dashed #3a3246;border-radius:14px;padding:26px 14px;text-align:center;background:var(--bg2);transition:.15s}
+.drop.over{border-color:var(--red);background:#1f1218}
+.drop b{font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:14px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;transition:.15s;text-align:left;padding:0}
+.card:hover{transform:translateY(-2px);border-color:var(--red)}
+.thumb{aspect-ratio:16/9;background:#000 center/cover no-repeat}
+.card .body{padding:10px 12px}
+.card b{display:block;font-size:15px;margin-bottom:2px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;color:var(--dim);margin-bottom:6px}
+.err{color:var(--red2);font-size:14px;min-height:1.2em;margin-top:8px}
+/* lobby */
+.lobby{display:grid;grid-template-columns:1fr 360px;gap:20px}
+.packhead{display:flex;gap:16px;align-items:center;margin-bottom:18px}
+.packhead .thumb{width:180px;flex:none;border-radius:12px;border:1px solid var(--line)}
+.roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.role{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.role.mine{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+.role .thumb{aspect-ratio:16/10}
+.role .body{padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.role b{font-size:16px}
+.owner{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:14px}
+.owner i,.pdot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+.plist .p{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.plist .p:last-child{border:0}
+.plist .p .nm{flex:1;font-weight:600}
+.tagx{font-size:11px;font-family:var(--mono);padding:2px 6px;border-radius:5px;background:#2a2333;color:#cfc3db}
+.tagx.ok{background:#173a2c;color:var(--green)}
+.tagx.wait{background:#3a2c14;color:var(--amber)}
+.tagx.off{background:#3a1820;color:var(--red2)}
+.invite{display:flex;gap:8px}
+.invite input{font-family:var(--mono);font-size:13px}
+.code{font-family:var(--mono);font-size:28px;letter-spacing:.2em;font-weight:600;color:var(--amber);margin:6px 0}
+.banner{background:#2a1520;border:1px solid var(--red);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.banner.info{background:#1b2230;border-color:#3b4f7a}
+/* booth */
+.booth{display:grid;grid-template-columns:1fr 330px;gap:20px}
+.stage{position:relative;aspect-ratio:16/9;background:#000;border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
+.stage img,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.stage canvas[hidden]{display:none}
+.stage.rec{border-color:var(--red);box-shadow:0 0 0 2px var(--red),0 0 40px rgba(255,61,87,.35)}
+.tag{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.7);padding:5px 10px;border-radius:8px;font-weight:600}
+.up{position:absolute;right:12px;top:12px;padding:5px 10px;border-radius:8px;font-weight:600;color:#111}
+.count{position:absolute;inset:0;display:grid;place-items:center;font-size:120px;font-weight:800;background:rgba(0,0,0,.55);color:#fff}
+.count[hidden]{display:none}
+.caption{font-size:clamp(22px,3vw,34px);font-weight:600;text-align:center;margin:18px 0 12px;line-height:1.25;min-height:1.3em}
+.meter{height:8px;background:var(--bg2);border-radius:99px;overflow:hidden;margin:0 0 14px;border:1px solid var(--line)}
+.meter div{height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));transition:width .05s}
+.controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.controls button{flex:1 1 140px}
+button.rec{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+button.rec:hover:not(:disabled){background:var(--red2)}
+button.rec.live{background:#fff;color:var(--red)}
+.nav2{display:flex;justify-content:space-between;align-items:center;margin:14px 0;color:var(--dim);font-family:var(--mono);font-size:13px;gap:8px}
+.locks{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+label.ck{display:flex;gap:8px;align-items:center;cursor:pointer;color:#ddd;font-size:14px}
+.judges{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.judge{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.judge .n{font-size:13px;color:var(--dim)}
+.judge .s{font-size:44px;font-weight:800;line-height:1.1;margin:4px 0}
+.judge .q{font-size:13px;color:#d6cbe0;line-height:1.35}
+.judge.pop{animation:pop .35s ease-out backwards}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+.jnote{grid-column:1/-1;color:var(--dim);text-align:center;font-size:14px;padding:14px;border:1px dashed var(--line);border-radius:12px}
+.jtotal{grid-column:1/-1;text-align:center;font-family:var(--mono);color:var(--amber)}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.side .panel{padding:14px}
+select{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:.45em .6em}
+#lineList{list-style:none;margin:0;padding:0;max-height:44vh;overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--bg2)}
+#lineList li{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+#lineList li:hover{background:#1d1824}
+#lineList li.cur{background:#2a1520;box-shadow:inset 3px 0 var(--red)}
+#lineList li.locked{opacity:.55}
+#lineList .ts{font-family:var(--mono);font-size:11px;color:var(--dim);width:40px;flex:none}
+#lineList .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lineList .st{flex:none;font-size:12px}
+.prog{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:14px}
+.prog .nm{width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prog .bar2{flex:1;height:8px;background:var(--bg2);border-radius:99px;overflow:hidden}
+.prog .bar2 div{height:100%}
+.prog .n{font-family:var(--mono);font-size:12px;color:var(--dim);width:42px;text-align:right}
+/* premiere */
+.prem{display:grid;grid-template-columns:1fr 330px;gap:20px}
+#cv{width:100%;display:block;background:#000;border-radius:var(--r);border:1px solid var(--line)}
+.bar{height:10px;background:var(--bg2);border-radius:99px;margin:12px 0;overflow:hidden;border:1px solid var(--line)}
+.bar.seek{cursor:pointer}
+.bar div{height:100%;width:0;background:var(--red)}
+.time{font-family:var(--mono);color:var(--dim);font-size:13px}
+.opts{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.opts input[type=range]{width:110px;accent-color:var(--red)}
+.note{color:var(--amber);font-size:14px;line-height:1.5}
+.note code{font-family:var(--mono);font-size:12px;background:#000;padding:2px 5px;border-radius:4px;color:#ddd}
+.sb{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.sb:last-child{border:0}
+.sb b{font-family:var(--mono)}
+details summary{cursor:pointer;color:var(--dim);font-size:14px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2a2333;border:1px solid #4a405a;padding:12px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;max-width:min(560px,90vw);z-index:20;line-height:1.4}
+#toast.on{opacity:1;transform:translateX(-50%)}
+@media (max-width:900px){.booth,.prem,.lobby,.two{grid-template-columns:1fr}.judge .s{font-size:34px}.packhead .thumb{width:120px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span></div>
+  <div class="steps" id="steps">
+    <button data-phase="lobby">Lobby</button><span class="sep">›</span>
+    <button data-phase="record">Booth</button><span class="sep">›</span>
+    <button data-phase="premiere">Premiere</button>
+  </div>
+  <span class="netdot" id="netdot"><i></i><span>offline</span></span>
+</header>
+
+<main>
+<!-- ===================== HOME ===================== -->
+<section class="screen" id="scr-home">
+  <h1 id="heroTitle">Drop a pack. Grab a mic.<br><em>Ruin a scene.</em></h1>
+  <p class="sub" id="heroSub">Host a game, pick your role, and send your friends the invite link. Everyone records their own character from home, then you all watch the finished dub together.</p>
+  <div class="panel" style="max-width:420px;margin-top:18px">
+    <div class="field" style="margin:0"><label for="myName">Your name</label>
+      <input type="text" id="myName" maxlength="20" placeholder="e.g. Merf"></div>
+  </div>
+  <div class="two">
+    <div class="panel" id="hostPanel">
+      <h3>Host a game</h3>
+      <label class="drop" id="drop">
+        <b>Drop a pack .zip here</b>
+        <span class="row">
+          <span class="btn primary">Choose .zip<input type="file" id="zipIn" accept=".zip" multiple hidden></span>
+          <span class="btn" id="folderBtn">Choose folder</span>
+        </span>
+        <input type="file" id="dirIn" webkitdirectory multiple hidden>
+        <span class="meta" id="loadMsg"></span>
+      </label>
+      <div class="grid" id="packGrid"></div>
+    </div>
+    <div class="panel" id="joinPanel">
+      <h3>Join a friend</h3>
+      <div class="field"><label for="joinCode">Invite link or code</label>
+        <input type="text" id="joinCode" placeholder="paste the link or the 6-letter code"></div>
+      <button class="primary wide" id="joinBtn">Join game</button>
+      <div class="err" id="joinErr"></div>
+      <p class="meta">After you join, the host will tell you which pack to load. You need the same pack zip they have.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LOBBY ===================== -->
+<section class="screen" id="scr-lobby" hidden>
+  <div id="lobbyBanner"></div>
+  <div class="lobby">
+    <div>
+      <div class="packhead">
+        <div class="thumb" id="lpThumb"></div>
+        <div>
+          <h2 id="lpTitle"></h2>
+          <div class="meta" id="lpMeta"></div>
+        </div>
+      </div>
+      <div id="needPack" class="panel hot" hidden style="margin-bottom:18px">
+        <h3>Load the same pack to play</h3>
+        <p style="margin-top:0">The host is playing <b id="needTitle"></b>. Load that pack's zip (or folder) here.</p>
+        <label class="drop" id="drop2">
+          <b>Drop the pack .zip here</b>
+          <span class="row">
+            <span class="btn primary">Choose .zip<input type="file" id="zipIn2" accept=".zip" hidden></span>
+            <span class="btn" id="folderBtn2">Choose folder</span>
+          </span>
+          <input type="file" id="dirIn2" webkitdirectory multiple hidden>
+          <span class="meta" id="loadMsg2"></span>
+        </label>
+      </div>
+      <h3 id="rolesHead">Pick your role</h3>
+      <div class="roles" id="roles"></div>
+    </div>
+    <aside class="side">
+      <div class="panel" id="invitePanel">
+        <h3>Invite friends</h3>
+        <div id="inviteBody"></div>
+      </div>
+      <div class="panel">
+        <h3>Players</h3>
+        <div class="plist" id="plist"></div>
+      </div>
+      <div id="startBox"></div>
+    </aside>
+  </div>
+</section>
+
+<!-- ===================== BOOTH ===================== -->
+<section class="screen" id="scr-record" hidden>
+  <div class="booth">
+    <div>
+      <div class="stage" id="stage">
+        <img id="lineImg" alt="">
+        <canvas id="stageCv" width="1280" height="720" hidden></canvas>
+        <div class="tag" id="lineChar"></div>
+        <div class="up" id="lineUp"></div>
+        <div class="count" id="countdown" hidden></div>
+      </div>
+      <p class="caption" id="lineCaption"></p>
+      <div class="meter"><div id="meterFill"></div></div>
+      <div class="controls">
+        <button id="bOrig">▶ Original<kbd>O</kbd></button>
+        <button id="bRec" class="rec">● Record<kbd>Space</kbd></button>
+        <button id="bTake" disabled>▶ Take<kbd>P</kbd></button>
+        <button id="bScene" disabled>🎬 In scene<kbd>S</kbd></button>
+      </div>
+      <div class="nav2">
+        <button id="bPrev">← Prev</button>
+        <span id="lineCount"></span>
+        <button id="bNext">Next →</button>
+      </div>
+      <div class="locks">
+        <label class="ck"><input type="checkbox" id="optCount" checked> 3-2-1 countdown</label>
+        <label class="ck"><input type="checkbox" id="optAutoplay" checked> Play my take back after recording</label>
+      </div>
+      <div class="judges" id="judges" style="margin-top:14px"></div>
+    </div>
+    <aside class="side">
+      <div class="row" style="justify-content:space-between">
+        <h3 style="margin:0">Lines</h3>
+        <select id="filterSel"><option value="mine">My lines</option><option value="all">All lines</option></select>
+      </div>
+      <ol id="lineList"></ol>
+      <div class="panel"><h3>Team progress</h3><div id="progress"></div></div>
+      <div id="boothNext"></div>
+    </aside>
+  </div>
+</section>
+
+<!-- ===================== PREMIERE ===================== -->
+<section class="screen" id="scr-premiere" hidden>
+  <div class="prem">
+    <div>
+      <canvas id="cv" width="1280" height="720"></canvas>
+      <div class="bar" id="bar"><div id="barFill"></div></div>
+      <div class="row" style="justify-content:space-between">
+        <div class="row">
+          <button class="primary" id="pPlay">▶ Play</button>
+          <span class="time" id="pTime">0:00 / 0:00</span>
+        </div>
+        <button id="pExport">⬇ Save as video</button>
+      </div>
+      <p class="meta" id="pCtrlNote"></p>
+      <div class="opts">
+        <label class="ck"><input type="checkbox" id="optFill" checked> Original voice for unrecorded lines</label>
+        <label class="ck"><input type="checkbox" id="optCaps" checked> Captions</label>
+        <label class="ck">Music <input type="range" id="volBack" min="0" max="1.5" step=".05" value="1"></label>
+        <label class="ck">Voices <input type="range" id="volVoice" min="0" max="2.5" step=".05" value="1.2"></label>
+      </div>
+      <p class="note" id="vidNote"></p>
+    </div>
+    <aside class="side">
+      <div class="panel"><h3>Scoreboard</h3><div id="scoreboard"></div></div>
+      <div id="premNext"></div>
+      <div class="panel">
+        <details>
+          <summary>Backup: share takes as files</summary>
+          <p class="meta">If the connection is acting up, export your takes and send the zip to whoever needs them.</p>
+          <div class="row">
+            <button id="expTakes">⬇ Export takes</button>
+            <span class="btn">⬆ Import<input type="file" id="impTakes" accept=".zip" multiple hidden></span>
+          </div>
+          <p class="meta" id="impMsg"></p>
+        </details>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>Video not showing?</summary>
+          <p class="meta">Load a converted copy of the pack's video (.webm or .mp4):</p>
+          <span class="btn">Choose video file<input type="file" id="vidIn" accept="video/*,.ogv,.webm,.mp4" hidden></span>
+        </details>
+      </div>
+    </aside>
+  </div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script src="jszip.min.js"></script>
+<script src="peerjs.min.js"></script>
+<script src="ogv.js"></script>
+<script>
+'use strict';
+/* ================================================================
+   Dub Booth: a free online dubbing party game.
+   - Reads packs in the "_pack_info.ini + NNN_Character.txt" format
+   - Players connect peer-to-peer (WebRTC via PeerJS); the host's
+     browser is the "server" that keeps the lobby state.
+   - Takes are sent between players directly; nothing is uploaded
+     to any storage.
+   ================================================================ */
+
+/* ---------------- tiny helpers ---------------- */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const fmt = t => { t = Math.max(0, t || 0); return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0'); };
+const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pack';
+const toArr = v => v == null ? [] : Array.isArray(v) ? v : [v];
+const COLORS = ['#ff3d57', '#ffb547', '#4ce0a0', '#7aa8ff', '#d77aff', '#5ee6ff', '#ff8a3d', '#c4ff5e'];
+const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'style') e.style.cssText = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+}
+let toastT;
+function toast(msg, ms = 3500) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms);
+}
+function download(blob, name) {
+  const a = el('a', { href: URL.createObjectURL(blob), download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+
+/* ================================================================
+   STATE
+   ================================================================ */
+const S = {
+  packs: [],          // packs loaded on this computer
+  pack: null,         // the pack being played
+  hostPack: null,     // guests: summary of the host's pack {title, fp, ...}
+  isHost: false, inGame: false,
+  me: { id: 'host', name: '' },
+  players: [],        // [{id, name, color, ready, online, host}]
+  roles: {},          // character -> player id
+  phase: 'lobby',     // lobby | record | premiere
+  screen: 'home',
+  idx: 0, filter: 'mine',
+};
+const playerById = id => S.players.find(p => p.id === id);
+const colorOf = id => playerById(id)?.color || '#888';
+const nameOf = id => playerById(id)?.name || 'Someone';
+const ownerOf = line => S.roles[line.chars[0]];
+const canRecord = line => !ownerOf(line) || ownerOf(line) === S.me.id;
+const isMine = line => ownerOf(line) === S.me.id;
+
+/* ================================================================
+   INI parser (Godot ConfigFile style)
+   ================================================================ */
+function balanced(v) {
+  let inStr = false, esc = false, depth = 0;
+  for (const ch of v) {
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; }
+    else if (ch === '"') inStr = true;
+    else if ('[{('.includes(ch)) depth++;
+    else if (']})'.includes(ch)) depth--;
+  }
+  return !inStr && depth <= 0;
+}
+function jsonSafe(v) {
+  let o = '', inStr = false, esc = false;
+  for (const ch of v) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      else if (ch === '\n') { o += '\\n'; continue; }
+      else if (ch === '\r') continue;
+      else if (ch === '\t') { o += '\\t'; continue; }
+    } else if (ch === '"') inStr = true;
+    o += ch;
+  }
+  return o;
+}
+function parseVal(v) {
+  try { return JSON.parse(jsonSafe(v)); } catch {}
+  if (/^".*"$/s.test(v)) return v.slice(1, -1);
+  if (/^-?\d+(\.\d+)?$/.test(v)) return +v;
+  if (v === 'true' || v === 'false') return v === 'true';
+  return v;
+}
+function parseIni(src) {
+  const out = {}; let sec = out._ = {};
+  const lines = src.replace(/^﻿/, '').split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t || t[0] === ';' || t[0] === '#') continue;
+    const m = t.match(/^\[(.+)\]$/);
+    if (m) { sec = out[m[1]] = {}; continue; }
+    const eq = t.indexOf('=');
+    if (eq < 0) continue;
+    let val = t.slice(eq + 1).trim();
+    while (!balanced(val) && i + 1 < lines.length) val += '\n' + lines[++i];
+    sec[t.slice(0, eq).trim()] = parseVal(val.trim());
+  }
+  return out;
+}
+
+/* ================================================================
+   PACK LOADING
+   ================================================================ */
+const AUDIO_EXT = ['wav', 'mp3', 'ogg', 'opus', 'm4a', 'flac', 'webm'];
+const IMG_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+
+async function loadZip(file) {
+  const zip = await JSZip.loadAsync(file);
+  const groups = new Map();
+  zip.forEach((path, entry) => {
+    if (entry.dir || path.includes('__MACOSX')) return;
+    const i = path.lastIndexOf('/'), dir = path.slice(0, i + 1), name = path.slice(i + 1);
+    if (name.startsWith('._')) return;
+    if (!groups.has(dir)) groups.set(dir, new Map());
+    groups.get(dir).set(name, () => entry.async('blob'));
+  });
+  return addGroups(groups);
+}
+function loadFolder(fileList) {
+  const groups = new Map();
+  for (const f of fileList) {
+    const p = f.webkitRelativePath || f.name;
+    const i = p.lastIndexOf('/'), dir = p.slice(0, i + 1), name = p.slice(i + 1);
+    if (!groups.has(dir)) groups.set(dir, new Map());
+    groups.get(dir).set(name, async () => f);
+  }
+  return addGroups(groups);
+}
+async function addGroups(groups) {
+  const added = [];
+  for (const [dir, files] of groups) {
+    if (![...files.keys()].some(k => k.toLowerCase() === '_pack_info.ini')) continue;
+    try {
+      const p = await buildPack(dir, files);
+      const dupe = S.packs.find(x => x.fp === p.fp);
+      if (dupe) added.push(dupe); else { S.packs.push(p); added.push(p); }
+    } catch (e) { console.error(e); toast(`Couldn't read a pack: ${e.message}`); }
+  }
+  return added;
+}
+// A short fingerprint of a pack's lines so everyone can check they loaded the same pack.
+function fingerprint(lines) {
+  const s = lines.map(l => `${l.id}|${l.ts.join(',')}|${l.chars.join(',')}`).join('\n');
+  let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(36) + '-' + lines.length;
+}
+async function buildPack(dir, files) {
+  const lower = new Map([...files].map(([k, get]) => [k.toLowerCase(), { name: k, get }]));
+  const find = n => lower.get(String(n).toLowerCase());
+  const findBase = (base, exts) => { for (const e of exts) { const f = find(base + '.' + e); if (f) return f; } return null; };
+  const readText = async f => new TextDecoder('utf-8').decode(await (await f.get()).arrayBuffer());
+
+  const infoIni = parseIni(await readText(find('_pack_info.ini')));
+  const info = infoIni.data || infoIni._ || {};
+  const lines = [];
+  for (const [lk, f] of lower) {
+    if (!lk.endsWith('.txt') || lk.startsWith('_')) continue;
+    let cfg;
+    try { const ini = parseIni(await readText(f)); cfg = ini.data || ini._; } catch { continue; }
+    if (!cfg || (cfg.caption == null && cfg.dub_timestamps == null)) continue;
+    const base = f.name.slice(0, -4);
+    const chars = toArr(cfg.dub_characters).map(String).filter(Boolean);
+    lines.push({
+      id: base,
+      caption: String(cfg.caption ?? ''),
+      ts: toArr(cfg.dub_timestamps).map(Number).filter(Number.isFinite),
+      chars: chars.length ? chars : [base.replace(/^\d+[_\s-]*/, '').replace(/_/g, ' ').trim() || 'Someone'],
+      audio: findBase(base, AUDIO_EXT),
+      image: (cfg.image && find(cfg.image)) || findBase(base, IMG_EXT),
+      take: null, refBuf: null, imgUrl: null,
+    });
+  }
+  if (!lines.length) throw new Error('no line files found');
+  lines.sort((a, b) => (a.ts[0] ?? 1e9) - (b.ts[0] ?? 1e9) || a.id.localeCompare(b.id, undefined, { numeric: true }));
+  const all = [...lower.values()];
+  const icon = (info.icon && find(info.icon)) || lines.find(l => l.image)?.image;
+  const p = {
+    title: String(info.title || dir.replace(/\/$/, '').split('/').pop() || 'Untitled pack'),
+    authors: toArr(info.authors).map(String),
+    readme: info.readme ? String(info.readme) : '',
+    lines, fp: fingerprint(lines),
+    video: all.find(f => /^dub_video\./i.test(f.name)) || null,
+    backing: all.find(f => /^_backing_track\./i.test(f.name)) || null,
+    backBuf: null,
+    iconUrl: icon ? URL.createObjectURL(await icon.get()) : '',
+  };
+  p.characters = [...new Set(lines.map(l => l.chars[0]))];
+  return p;
+}
+async function lineImg(line) {
+  if (line.imgUrl === null && line.image) line.imgUrl = URL.createObjectURL(await line.image.get());
+  return line.imgUrl || S.pack?.iconUrl || '';
+}
+const packSummary = p => ({ title: p.title, fp: p.fp, lines: p.lines.length, characters: p.characters, authors: p.authors, readme: p.readme });
+
+/* ================================================================
+   AUDIO
+   ================================================================ */
+let AC = null, master, mediaDest;
+function ac() {
+  if (!AC) {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    master = AC.createGain(); master.connect(AC.destination);
+    mediaDest = AC.createMediaStreamDestination(); master.connect(mediaDest);   // for "save as video"
+  }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+async function decode(blob) { return await ac().decodeAudioData(await blob.arrayBuffer()); }
+async function refBuf(line) { if (!line.refBuf && line.audio) line.refBuf = await decode(await line.audio.get()); return line.refBuf; }
+async function backBuf(p) { if (!p.backBuf && p.backing) p.backBuf = await decode(await p.backing.get()); return p.backBuf; }
+
+let previewSrcs = [];
+function stopPreview() { for (const s of previewSrcs) { try { s.stop(); } catch {} } previewSrcs = []; }
+function playBuf(buf, gain = 1) {
+  const s = AC.createBufferSource(), g = AC.createGain();
+  s.buffer = buf; g.gain.value = gain; s.connect(g); g.connect(master); s.start();
+  previewSrcs.push(s); s.onended = () => { previewSrcs = previewSrcs.filter(x => x !== s); };
+}
+function beep(freq) {
+  const o = ac().createOscillator(), g = AC.createGain();
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0.25, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.18);
+  o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + 0.2);
+}
+function toMono(buf) {
+  const n = buf.length, out = new Float32Array(n);
+  for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) out[i] += d[i] / buf.numberOfChannels; }
+  return out;
+}
+function trimSilence(d, sr) {
+  let peak = 0; for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  if (peak < 0.01) return null;
+  const th = Math.max(0.012, peak * 0.08);
+  let a = 0, b = d.length - 1;
+  while (a < d.length && Math.abs(d[a]) < th) a++;
+  while (b > a && Math.abs(d[b]) < th) b--;
+  return d.slice(Math.max(0, a - Math.floor(sr * 0.06)), Math.min(d.length, b + Math.floor(sr * 0.18)));
+}
+function mkBuf(data, sr) { const b = ac().createBuffer(1, data.length, sr); b.copyToChannel(data, 0); return b; }
+// takes travel over the network as 16-bit PCM (halved sample rate to keep them small)
+function bufToPcm(buf) {
+  let d = buf.getChannelData(0), sr = buf.sampleRate;
+  if (sr >= 44100) { const h = new Float32Array(d.length >> 1); for (let i = 0; i < h.length; i++) h[i] = (d[2 * i] + d[2 * i + 1]) / 2; d = h; sr /= 2; }
+  const o = new Int16Array(d.length); for (let i = 0; i < d.length; i++) o[i] = clamp(d[i], -1, 1) * 32767;
+  return { sr, pcm: o.buffer };
+}
+function pcmToBuf(pcm, sr) {
+  const ab = pcm instanceof ArrayBuffer ? pcm : pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength);
+  const i16 = new Int16Array(ab), f = new Float32Array(i16.length);
+  for (let i = 0; i < i16.length; i++) f[i] = i16[i] / 32768;
+  return mkBuf(f, sr);
+}
+function wavEncode(buf) {
+  const d = buf.getChannelData(0), sr = buf.sampleRate, n = d.length;
+  const ab = new ArrayBuffer(44 + n * 2), v = new DataView(ab);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, clamp(d[i], -1, 1) * 0x7fff, true);
+  return new Blob([ab], { type: 'audio/wav' });
+}
+
+/* ================================================================
+   JUDGES (grade timing & rhythm against the original, not talent)
+   ================================================================ */
+const JUDGES = [
+  { name: 'Vex', role: 'the critic', bias: -0.9, jitter: 0.9,
+    quips: [['Painful. Truly.', 'Was that a line or a sneeze?', 'I have notes. All of them bad.'],
+            ['Passable. Barely.', 'Rhythm is there. Soul is not.', 'Fine. I suppose.'],
+            ['…Okay, that was good.', 'I hate that I liked it.', 'Annoyingly accurate.']] },
+  { name: 'Bubbles', role: 'hype machine', bias: 1.3, jitter: 1.2,
+    quips: [['Brave choice!! 💖', 'Points for confidence!', 'The vibes were… present!'],
+            ['Love the energy!!', "You're getting there bestie!", 'Ooo I felt that!'],
+            ['ICONIC. 🔥', 'GIVE THEM AN OSCAR', "I'm literally crying!!"]] },
+  { name: 'UNIT-7', role: 'pure math', bias: 0, jitter: 0, dec: true,
+    quips: [['Waveform mismatch detected.', 'Timing error: significant.', 'Correlation: tragic.'],
+            ['Partial match. Acceptable.', 'Cadence within tolerance.', 'Signal: mostly aligned.'],
+            ['Match confirmed. Impressive.', 'Rhythm lock achieved.', 'Optimal performance.']] },
+];
+function envelope(d, bins = 48) {
+  const out = new Float32Array(bins), step = d.length / bins; let mx = 1e-9;
+  for (let b = 0; b < bins; b++) {
+    let s = 0, c = 0;
+    for (let i = Math.floor(b * step); i < Math.floor((b + 1) * step); i += 4) { s += d[i] * d[i]; c++; }
+    out[b] = Math.sqrt(s / Math.max(1, c)); mx = Math.max(mx, out[b]);
+  }
+  return out.map(x => x / mx);
+}
+function pearson(a, b) {
+  const n = a.length; let ma = 0, mb = 0;
+  for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i]; }
+  ma /= n; mb /= n;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < n; i++) { const x = a[i] - ma, y = b[i] - mb; num += x * y; da += x * x; db += y * y; }
+  return da && db ? num / Math.sqrt(da * db) : 0;
+}
+async function judge(line, take) {
+  let base = 0.5;
+  const ref = await refBuf(line).catch(() => null);
+  if (ref) {
+    const rm = trimSilence(toMono(ref), ref.sampleRate) || toMono(ref);
+    const rd = rm.length / ref.sampleRate, td = take.duration;
+    const lenScore = Math.min(rd, td) / Math.max(rd, td);
+    const shape = clamp((pearson(envelope(rm), envelope(take.getChannelData(0))) + 0.2) / 1.2, 0, 1);
+    base = 0.4 * lenScore + 0.6 * shape;
+  }
+  return JUDGES.map(j => {
+    let s = clamp(1 + 9 * base + j.bias + (Math.random() * 2 - 1) * j.jitter, 1, 10);
+    s = j.dec ? Math.round(s * 10) / 10 : Math.round(s);
+    return { s, quip: pick(j.quips[s < 4 ? 0 : s < 7 ? 1 : 2]) };
+  });
+}
+const takeTotal = t => t?.judges ? t.judges.reduce((a, j) => a + j.s, 0) : 0;
+
+/* ================================================================
+   NETWORK (PeerJS). Star layout: guests talk only to the host,
+   the host relays takes and owns the lobby state.
+   ================================================================ */
+const PREFIX = 'dubbooth-v1-';
+const NET = { peer: null, conns: new Map(), hostConn: null, code: '', status: 'offline' };
+function peerOpts() {
+  const o = { debug: 0, config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }] } };
+  const custom = new URLSearchParams(location.search).get('peer');   // e.g. ?peer=localhost:9000 for a self-hosted PeerJS server
+  if (custom) { const [host, port] = custom.split(':'); Object.assign(o, { host, port: +port || 9000, path: '/', secure: location.protocol === 'https:' }); }
+  return o;
+}
+function setNet(status, text) {
+  NET.status = status;
+  const d = $('#netdot');
+  d.className = 'netdot ' + ({ online: 'ok', connecting: 'warn', error: 'bad' }[status] || '');
+  d.lastChild.textContent = text || status;
+}
+const randCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
+const sendTo = (conn, msg) => { try { if (conn?.open) conn.send(msg); } catch (e) { console.warn('send failed', e); } };
+
+/* ---------- HOST ---------- */
+function hostStart() {
+  if (!window.Peer) { setNet('error', 'no network lib'); return; }
+  NET.code = randCode();
+  setNet('connecting', 'connecting…');
+  const peer = NET.peer = new Peer(PREFIX + NET.code, peerOpts());
+  peer.on('open', () => { setNet('online', 'online'); renderLobby(); });
+  peer.on('connection', hostConn);
+  let tries = 0;
+  peer.on('open', () => { tries = 0; });
+  peer.on('disconnected', () => {
+    if (tries++ > 6) { setNet('error', 'can\'t reach server'); renderLobby(); return; }
+    setNet('connecting', 'reconnecting…'); setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch {} }, 1500 * tries);
+  });
+  peer.on('error', e => {
+    console.warn('peer error', e.type, e);
+    if (e.type === 'unavailable-id') { peer.destroy(); hostStart(); }
+    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) { setNet('error', 'can\'t reach server'); renderLobby(); }
+  });
+}
+function hostConn(conn) {
+  conn.on('data', m => hostOnMsg(conn, m));
+  conn.on('close', () => {
+    NET.conns.delete(conn.peer);
+    const pl = playerById(conn.peer);
+    if (pl) { pl.online = false; toast(`${pl.name} disconnected`); broadcastState(); }
+  });
+  conn.on('error', e => console.warn('conn error', e));
+}
+function hostOnMsg(conn, m) {
+  if (!m || typeof m !== 'object') return;
+  const pid = conn.peer;
+  if (m.t === 'hello') {
+    let name = String(m.name || 'Guest').trim().slice(0, 20) || 'Guest';
+    let pl = S.players.find(p => !p.online && !p.host && p.name === name);   // same name coming back? give them their seat
+    if (pl) {
+      for (const c in S.roles) if (S.roles[c] === pl.id) S.roles[c] = pid;
+      for (const l of S.pack.lines) if (l.take?.pid === pl.id) l.take.pid = pid;
+      Object.assign(pl, { id: pid, online: true, ready: false });
+    } else {
+      if (S.players.length >= 8) { sendTo(conn, { t: 'reject', reason: 'This game is full (8 players max).' }); setTimeout(() => conn.close(), 800); return; }
+      while (S.players.some(p => p.name.toLowerCase() === name.toLowerCase())) name = name.replace(/ \d+$/, '') + ' ' + (Math.floor(Math.random() * 90) + 10);
+      pl = { id: pid, name, color: COLORS[S.players.length % COLORS.length], ready: false, online: true, host: false };
+      S.players.push(pl);
+    }
+    NET.conns.set(pid, conn);
+    sendTo(conn, { t: 'welcome', you: pid, name: pl.name, pack: packSummary(S.pack) });
+    toast(`${pl.name} joined 👋`);
+    broadcastState();
+  } else if (m.t === 'ready') {
+    const pl = playerById(pid); if (!pl) return;
+    pl.ready = m.fp === S.pack.fp;
+    if (pl.ready) for (const l of S.pack.lines) if (l.take) sendTo(conn, takeMsg(l));   // catch them up on takes so far
+    broadcastState();
+  } else if (m.t === 'claim') { claimRole(pid, m.char); }
+  else if (m.t === 'drop') { dropRole(pid, m.char); }
+  else if (m.t === 'take') {
+    if (applyTake(m)) for (const [id, c] of NET.conns) if (id !== pid && playerById(id)?.ready) sendTo(c, m);
+  }
+}
+function claimRole(pid, ch) {
+  if (!S.pack.characters.includes(ch)) return;
+  if (!S.roles[ch] || S.roles[ch] === pid || !playerById(S.roles[ch])?.online) S.roles[ch] = pid;
+  broadcastState();
+}
+function assignRole(pid, ch) { if (pid) S.roles[ch] = pid; else delete S.roles[ch]; broadcastState(); }
+function dropRole(pid, ch) { if (S.roles[ch] === pid) delete S.roles[ch]; broadcastState(); }
+function stateMsg() { return { t: 'state', players: S.players, roles: S.roles, phase: S.phase }; }
+function broadcastState() {
+  const st = stateMsg();
+  for (const c of NET.conns.values()) sendTo(c, st);
+  onStateChanged();
+}
+function broadcast(msg) { for (const [id, c] of NET.conns) if (playerById(id)?.ready) sendTo(c, msg); }
+function setPhase(ph) {
+  if (!S.isHost || S.phase === ph) return;
+  S.phase = ph; broadcastState();
+}
+
+/* ---------- GUEST ---------- */
+function parseCode(s) {
+  s = String(s || '').trim();
+  const m = s.match(/join=([a-z0-9]+)/i);
+  return (m ? m[1] : s).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function guestJoin(code, name) {
+  if (!window.Peer) return joinErr('The network library didn\'t load. Check your internet connection.');
+  if (NET.peer) { try { NET.peer.destroy(); } catch {} }
+  setNet('connecting', 'connecting…');
+  $('#joinBtn').disabled = true; joinErr('Connecting…');
+  const peer = NET.peer = new Peer(peerOpts());
+  const fail = msg => { $('#joinBtn').disabled = false; joinErr(msg); setNet('error', 'not connected'); };
+  const giveUp = setTimeout(() => { if (!S.inGame) fail('No answer from the host. Make sure their game page is still open, then try again.'); }, 15000);
+  peer.on('open', () => {
+    const conn = NET.hostConn = peer.connect(PREFIX + code, { reliable: true });
+    conn.on('open', () => sendTo(conn, { t: 'hello', name }));
+    conn.on('data', m => { clearTimeout(giveUp); guestOnMsg(m); });
+    conn.on('close', () => {
+      if (!S.inGame) return;
+      setNet('error', 'disconnected');
+      showBanner('Lost connection to the host.', 'Reconnect', () => { location.hash = 'join=' + code; guestJoin(code, S.me.name); });
+    });
+  });
+  peer.on('error', e => {
+    console.warn('peer error', e.type, e);
+    if (e.type === 'peer-unavailable') { clearTimeout(giveUp); fail('Couldn\'t find that game. Check the code, and make sure the host still has the game open.'); }
+    else if (!S.inGame) { clearTimeout(giveUp); fail('Couldn\'t connect (' + e.type + '). Check your internet and try again.'); }
+  });
+}
+function joinErr(msg) { $('#joinErr').textContent = msg; }
+async function guestOnMsg(m) {
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'reject') { toast(m.reason, 6000); joinErr(m.reason); $('#joinBtn').disabled = false; return; }
+  if (m.t === 'welcome') {
+    S.inGame = true; S.isHost = false;
+    S.me = { id: m.you, name: m.name };
+    S.hostPack = m.pack;
+    setNet('online', 'connected');
+    hideBanner();
+    const have = S.packs.find(p => p.fp === m.pack.fp);
+    if (have) usePack(have);
+    else if (S.pack && S.pack.fp !== m.pack.fp) S.pack = null;
+    go('lobby');
+    return;
+  }
+  if (m.t === 'state') {
+    S.players = m.players; S.roles = m.roles;
+    const phaseChanged = S.phase !== m.phase; S.phase = m.phase;
+    onStateChanged(phaseChanged);
+    return;
+  }
+  if (!S.pack) return;
+  if (m.t === 'take') { applyTake(m); return; }
+  if (m.t === 'play') remotePlay(m.offset);
+  if (m.t === 'stop') remoteStop(m.offset);
+}
+function usePack(p) {
+  S.pack = p; S.idx = 0;
+  P.videoReady = null;
+  if (!S.isHost) sendTo(NET.hostConn, { t: 'ready', fp: p.fp });
+  preloadVideo();
+}
+
+/* ---------- takes ---------- */
+function takeMsg(line) {
+  const { sr, pcm } = bufToPcm(line.take.buf);
+  return { t: 'take', line: line.id, pid: line.take.pid, name: line.take.name, judges: line.take.judges, sr, pcm };
+}
+function applyTake(m) {
+  const line = S.pack?.lines.find(l => l.id === m.line);
+  if (!line || !m.pcm) return false;
+  try { line.take = { buf: pcmToBuf(m.pcm, m.sr), pid: m.pid, name: String(m.name || 'Someone').slice(0, 20), judges: Array.isArray(m.judges) ? m.judges.slice(0, 3) : null }; }
+  catch (e) { console.warn('bad take', e); return false; }
+  onTakesChanged(line);
+  return true;
+}
+function shareTake(line) {
+  const msg = takeMsg(line);
+  if (S.isHost) broadcast(msg); else sendTo(NET.hostConn, msg);
+}
+
+/* ================================================================
+   NAVIGATION
+   ================================================================ */
+function go(name) {
+  if (name !== 'premiere') stopShow(true);
+  stopPreview(); stopScene();
+  for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== 'scr-' + name;
+  S.screen = name;
+  renderSteps();
+  if (name === 'home') renderHome();
+  if (name === 'lobby') renderLobby();
+  if (name === 'record') renderBooth();
+  if (name === 'premiere') enterPremiere();
+  window.scrollTo(0, 0);
+}
+function renderSteps() {
+  const cur = { lobby: 'lobby', record: 'record', premiere: 'premiere' }[S.screen];
+  for (const b of document.querySelectorAll('#steps button')) {
+    b.classList.toggle('on', b.dataset.phase === cur);
+    b.disabled = !S.inGame || !S.pack || (!S.isHost && b.dataset.phase !== S.phase && b.dataset.phase !== cur);
+    b.title = S.isHost ? 'Move everyone to this step' : 'The host moves everyone between steps';
+  }
+}
+document.querySelectorAll('#steps button').forEach(b => b.onclick = () => {
+  if (S.isHost) { if (b.dataset.phase === 'premiere' && recState !== 'idle') return; setPhase(b.dataset.phase); }
+  else if (b.dataset.phase === S.phase) go(S.phase);
+});
+// Called whenever players/roles/phase change.
+function onStateChanged(phaseChanged = true) {
+  const target = S.pack ? S.phase : 'lobby';
+  if (S.inGame && phaseChanged && S.screen !== target && recState === 'idle') { go(target); return; }
+  renderSteps();
+  if (S.screen === 'lobby') renderLobby();
+  if (S.screen === 'record') { renderProgress(); renderBoothNext(); renderLine(); renderList(); }
+  if (S.screen === 'premiere') { renderScoreboard(); renderPremNext(); }
+}
+function onTakesChanged(line) {
+  if (S.screen === 'record') { renderList(); renderProgress(); if (curLine() === line && recState === 'idle') renderLine(); }
+  if (S.screen === 'premiere') { renderScoreboard(); if (!P.running) draw(P.offset); }
+}
+let bannerEl = null;
+function showBanner(text, btn, fn) {
+  hideBanner();
+  bannerEl = el('div', { class: 'banner', style: 'max-width:1208px;margin:16px auto 0' }, el('span', { style: 'flex:1' }, text), btn && el('button', { class: 'primary', onclick: fn }, btn));
+  document.querySelector('main').prepend(bannerEl);
+}
+function hideBanner() { bannerEl?.remove(); bannerEl = null; }
+
+/* ================================================================
+   HOME
+   ================================================================ */
+const nameInput = $('#myName');
+nameInput.value = store.get('dubbooth-name') || '';
+nameInput.oninput = () => store.set('dubbooth-name', nameInput.value.trim());
+const myName = () => nameInput.value.trim().slice(0, 20);
+function needName() {
+  if (myName()) return false;
+  nameInput.focus(); nameInput.style.borderColor = 'var(--red)'; toast('Type your name first.');
+  return true;
+}
+
+function renderHome() {
+  const code = parseCode(location.hash);
+  if (/join=/.test(location.hash) && code) {
+    $('#joinCode').value = code;
+    $('#joinPanel').classList.add('hot');
+    $('#heroTitle').innerHTML = 'You\'ve been invited<br>to a <em>dub session.</em>';
+    $('#heroSub').textContent = 'Type your name and hit Join. Then load the same pack zip as the host, pick a role, and start recording.';
+    document.querySelector('#scr-home .two').prepend($('#joinPanel'));
+  }
+  const g = $('#packGrid'); g.innerHTML = '';
+  if (S.packs.length > 1) for (const p of S.packs) g.append(packCard(p, () => hostPack(p)));
+}
+function packCard(p, onclick) {
+  return el('button', { class: 'card', onclick },
+    el('div', { class: 'thumb', style: p.iconUrl ? `background-image:url("${p.iconUrl}")` : '' }),
+    el('div', { class: 'body' }, el('b', {}, p.title), el('div', { class: 'meta' }, `${p.lines.length} lines · ${p.characters.length} actors`)));
+}
+
+async function readPackFiles(files, msgEl) {
+  const zips = [...files].filter(f => /\.zip$/i.test(f.name));
+  if (!zips.length) { toast('Pick a .zip file. For an unzipped pack, use "Choose folder".'); return []; }
+  const out = [];
+  for (const f of zips) {
+    msgEl.textContent = `Reading ${f.name}…`;
+    try { out.push(...await loadZip(f)); } catch (e) { console.error(e); toast(`${f.name} isn't a readable zip.`); }
+  }
+  msgEl.textContent = out.length ? '' : 'No pack found in there (a pack has a _pack_info.ini file).';
+  return out;
+}
+async function hostGotPacks(added) {
+  if (!added.length) return;
+  if (S.packs.length === 1 || added.length === 1) hostPack(added[0]);
+  else renderHome();
+}
+function hostPack(p) {
+  if (needName()) return;
+  S.isHost = true; S.inGame = true;
+  S.me = { id: 'host', name: myName() };
+  S.players = [{ id: 'host', name: S.me.name, color: COLORS[0], ready: true, online: true, host: true }];
+  S.roles = {}; S.phase = 'lobby';
+  usePack(p);
+  if (!NET.peer) hostStart();
+  history.replaceState(null, '', location.pathname + location.search);
+  go('lobby');
+}
+function wireDrop(dropEl, zipIn, folderBtn, dirIn, msgEl, onPacks) {
+  zipIn.onchange = async e => { const f = [...e.target.files]; e.target.value = ''; onPacks(await readPackFiles(f, msgEl)); };
+  folderBtn.onclick = e => { e.preventDefault(); dirIn.click(); };
+  dirIn.onchange = async e => { const f = [...e.target.files]; e.target.value = ''; const r = await loadFolder(f); msgEl.textContent = r.length ? '' : 'No _pack_info.ini in that folder.'; onPacks(r); };
+  ['dragenter', 'dragover'].forEach(t => dropEl.addEventListener(t, e => { e.preventDefault(); dropEl.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => dropEl.addEventListener(t, e => { e.preventDefault(); dropEl.classList.remove('over'); }));
+  dropEl.addEventListener('drop', async e => onPacks(await readPackFiles(e.dataTransfer.files, msgEl)));
+}
+wireDrop($('#drop'), $('#zipIn'), $('#folderBtn'), $('#dirIn'), $('#loadMsg'), added => { if (needName()) return; hostGotPacks(added); });
+wireDrop($('#drop2'), $('#zipIn2'), $('#folderBtn2'), $('#dirIn2'), $('#loadMsg2'), added => {
+  const match = S.packs.find(p => p.fp === S.hostPack?.fp);
+  if (match) { usePack(match); toast('Pack matches! ✅'); onStateChanged(true); renderLobby(); }
+  else if (added.length) $('#loadMsg2').textContent = `That's "${added[0].title}", but the host is playing "${S.hostPack.title}". Load the same pack as the host.`;
+});
+$('#joinBtn').onclick = () => {
+  if (needName()) return;
+  const code = parseCode($('#joinCode').value);
+  if (code.length < 4) return joinErr('Paste the invite link or code from the host.');
+  S.me.name = myName();
+  guestJoin(code, myName());
+};
+$('#joinCode').onkeydown = e => { if (e.key === 'Enter') $('#joinBtn').click(); };
+
+/* ================================================================
+   LOBBY
+   ================================================================ */
+function inviteLink() {
+  const base = location.href.split('#')[0];
+  return `${base}#join=${NET.code}`;
+}
+function renderLobby() {
+  const sum = S.pack ? packSummary(S.pack) : S.hostPack;
+  if (!sum) return;
+  $('#lpTitle').textContent = sum.title;
+  const actors = sum.characters.length;
+  $('#lpMeta').textContent = `${sum.lines} lines · ${actors} actor${actors > 1 ? 's' : ''} in this clip` + (sum.authors?.length ? ` · pack by ${sum.authors.join(', ')}` : '') + (sum.readme ? ` · ${sum.readme}` : '');
+  $('#lpThumb').style.backgroundImage = S.pack?.iconUrl ? `url("${S.pack.iconUrl}")` : '';
+
+  $('#needPack').hidden = !!S.pack;
+  $('#needTitle').textContent = sum.title;
+
+  // invite panel
+  const ib = $('#inviteBody'); ib.innerHTML = '';
+  if (S.isHost) {
+    if (NET.status === 'online') {
+      if (location.protocol === 'file:') {
+        ib.append(el('p', { class: 'meta', style: 'margin-top:0' }, 'You opened this page as a file, so there\'s no link to share yet. Friends who have this same file can join with this code:'),
+          el('div', { class: 'code' }, NET.code),
+          el('p', { class: 'meta' }, 'Put the site online (GitHub Pages) to get a real invite link.'));
+      } else {
+        const inp = el('input', { type: 'text', readonly: true, value: inviteLink(), onclick: e => e.target.select() });
+        ib.append(el('div', { class: 'invite' }, inp, el('button', { class: 'primary', onclick: async () => {
+          try { await navigator.clipboard.writeText(inviteLink()); toast('Invite link copied! Paste it in Discord.'); } catch { inp.select(); document.execCommand('copy'); toast('Copied!'); }
+        } }, 'Copy')), el('p', { class: 'meta' }, 'Code: ', el('b', { style: 'font-family:var(--mono);color:var(--amber)' }, NET.code), '. Keep this tab open, because your browser is the game server.'));
+      }
+    } else if (NET.status === 'error') {
+      ib.append(el('p', { class: 'note', style: 'margin-top:0' }, 'Couldn\'t reach the matchmaking server, so friends can\'t join right now. You can still play solo.'),
+        el('button', { onclick: () => { try { NET.peer?.destroy(); } catch {} NET.peer = null; hostStart(); renderLobby(); } }, 'Try again'));
+    } else ib.append(el('p', { class: 'meta', style: 'margin:0' }, 'Setting up your invite link…'));
+  } else {
+    ib.append(el('p', { class: 'meta', style: 'margin:0' }, 'You\'re in ', el('b', {}, nameOf('host')), '\'s game. They\'ll start when everyone\'s ready.'));
+  }
+
+  // players
+  const pl = $('#plist'); pl.innerHTML = '';
+  for (const p of S.players) {
+    const status = !p.online ? el('span', { class: 'tagx off' }, 'offline') : p.ready ? el('span', { class: 'tagx ok' }, 'ready') : el('span', { class: 'tagx wait' }, 'loading pack');
+    const myRoles = Object.entries(S.roles).filter(([, id]) => id === p.id).map(([c]) => c);
+    pl.append(el('div', { class: 'p' }, el('span', { class: 'pdot', style: `background:${p.color}` }),
+      el('div', { class: 'nm' }, p.name, p.id === S.me.id ? ' (you)' : '', p.host ? ' 👑' : '',
+        el('div', { class: 'meta', style: 'font-weight:400' }, myRoles.length ? myRoles.join(', ') : 'no role yet')),
+      status));
+  }
+
+  // roles
+  const rl = $('#roles'); rl.innerHTML = '';
+  $('#rolesHead').textContent = `Pick your role · ${actors} actor${actors > 1 ? 's' : ''}`;
+  for (const ch of sum.characters) {
+    const owner = S.roles[ch];
+    const n = S.pack ? S.pack.lines.filter(l => l.chars[0] === ch).length : '';
+    const thumb = el('div', { class: 'thumb' });
+    if (S.pack) { const first = S.pack.lines.find(l => l.chars[0] === ch); lineImg(first).then(u => u && (thumb.style.backgroundImage = `url("${u}")`)); }
+    let action;
+    if (S.isHost) {
+      action = el('select', { onchange: e => assignRole(e.target.value, ch) },
+        el('option', { value: '' }, '— nobody (original voice) —'),
+        S.players.map(p => el('option', { value: p.id, selected: owner === p.id }, p.id === S.me.id ? `${p.name} (you)` : p.name)));
+    } else if (owner === S.me.id) action = el('button', { onclick: () => sendTo(NET.hostConn, { t: 'drop', char: ch }), disabled: !S.pack }, 'Give up role');
+    else if (!owner || !playerById(owner)?.online) action = el('button', { class: 'primary', disabled: !S.pack, onclick: () => sendTo(NET.hostConn, { t: 'claim', char: ch }) }, 'Take this role');
+    else action = null;
+    rl.append(el('div', { class: 'role' + (owner === S.me.id ? ' mine' : '') }, thumb,
+      el('div', { class: 'body' }, el('div', {}, el('b', {}, ch), n !== '' ? el('span', { class: 'meta' }, `  ${n} line${n > 1 ? 's' : ''}`) : ''),
+        owner ? el('span', { class: 'owner' }, el('i', { style: `background:${colorOf(owner)}` }), nameOf(owner) + (owner === S.me.id ? ' (you)' : '')) : el('span', { class: 'meta' }, 'Open role'),
+        action)));
+  }
+
+  // start box
+  const sb = $('#startBox'); sb.innerHTML = '';
+  if (S.isHost) {
+    const notReady = S.players.filter(p => p.online && !p.ready).map(p => p.name);
+    const open = sum.characters.filter(c => !S.roles[c]);
+    sb.append(el('button', { class: 'primary big wide', onclick: () => setPhase('record') }, 'Start recording →'));
+    if (notReady.length) sb.append(el('p', { class: 'meta' }, `Still loading the pack: ${notReady.join(', ')}.`));
+    if (open.length) sb.append(el('p', { class: 'meta' }, `Nobody has: ${open.join(', ')}. Anyone can record those lines, or they keep the original voice.`));
+  } else {
+    sb.append(el('div', { class: 'panel', style: 'text-align:center' }, S.pack ? '⏳ Waiting for the host to start…' : '📦 Load the pack above to get ready.'));
+  }
+}
+
+/* ================================================================
+   BOOTH
+   ================================================================ */
+const visibleLines = () => S.pack.lines.filter(l => S.filter === 'all' || isMine(l));
+const curLine = () => S.pack.lines[S.idx];
+const hasName = l => l.caption.toLowerCase().includes(l.chars[0].toLowerCase());
+
+function renderBooth() {
+  $('#filterSel').value = S.filter;
+  const vis = visibleLines();
+  if (!vis.length && S.filter === 'mine') { S.filter = 'all'; $('#filterSel').value = 'all'; toast('You don\'t have a role, so here are all the lines. You can record the open ones.'); }
+  if (!visibleLines().includes(curLine())) S.idx = S.pack.lines.indexOf(visibleLines()[0] ?? S.pack.lines[0]);
+  renderLine(); renderList(); renderProgress(); renderBoothNext();
+}
+$('#filterSel').onchange = e => {
+  S.filter = e.target.value;
+  const v = visibleLines(); if (v.length && !v.includes(curLine())) S.idx = S.pack.lines.indexOf(v[0]);
+  renderLine(); renderList();
+};
+
+async function renderLine() {
+  if (S.screen !== 'record' || recState !== 'idle') return;
+  const line = curLine(); if (!line) return;
+  const vis = visibleLines(), pos = vis.indexOf(line);
+  const owner = ownerOf(line);
+  $('#lineCaption').textContent = line.caption || '…';
+  $('#lineChar').textContent = line.chars.join(' & ');
+  const up = $('#lineUp');
+  up.textContent = owner ? `🎙 ${nameOf(owner)}${owner === S.me.id ? ' (you)' : ''}` : '🎙 open role';
+  up.style.background = owner ? colorOf(owner) : '#ccc';
+  $('#lineCount').textContent = `${pos >= 0 ? pos + 1 : '–'} / ${vis.length}` + (line.ts.length ? `  ·  @ ${line.ts[0].toFixed(1)}s` : '');
+  $('#bPrev').disabled = pos <= 0;
+  $('#bNext').disabled = pos < 0 || pos >= vis.length - 1;
+  $('#bOrig').disabled = !line.audio;
+  $('#bRec').disabled = !canRecord(line);
+  $('#bRec').title = canRecord(line) ? '' : `This is ${nameOf(owner)}'s line`;
+  $('#bTake').disabled = !line.take;
+  $('#bScene').disabled = !(S.pack.backing || V.ok);
+  renderJudges(line, false);
+  const url = await lineImg(line);
+  if (curLine() === line) $('#lineImg').src = url;
+}
+function renderList() {
+  const ol = $('#lineList'); ol.innerHTML = '';
+  for (const line of visibleLines()) {
+    const i = S.pack.lines.indexOf(line), owner = ownerOf(line);
+    const li = el('li', { class: (i === S.idx ? 'cur ' : '') + (canRecord(line) ? '' : 'locked'),
+      onclick: () => { if (recState !== 'idle') return; S.idx = i; stopPreview(); stopScene(); renderLine(); renderList(); } },
+      el('span', { class: 'pdot', style: `background:${owner ? colorOf(owner) : '#555'}` }),
+      el('span', { class: 'ts' }, line.ts.length ? fmt(line.ts[0]) : ''),
+      el('span', { class: 'tx' }, hasName(line) ? '' : el('b', {}, line.chars[0] + ': '), line.caption),
+      el('span', { class: 'st' }, line.take ? '✓' : ''));
+    ol.append(li);
+    if (i === S.idx) requestAnimationFrame(() => li.scrollIntoView({ block: 'nearest' }));
+  }
+}
+function renderProgress() {
+  const box = $('#progress'); box.innerHTML = '';
+  const rows = S.players.map(p => {
+    const mine = S.pack.lines.filter(l => ownerOf(l) === p.id);
+    return { p, total: mine.length, done: mine.filter(l => l.take).length };
+  }).filter(r => r.total);
+  const open = S.pack.lines.filter(l => !ownerOf(l));
+  if (open.length) rows.push({ p: { name: 'Open roles', color: '#666' }, total: open.length, done: open.filter(l => l.take).length });
+  for (const r of rows) {
+    box.append(el('div', { class: 'prog' }, el('span', { class: 'nm' }, r.p.name),
+      el('div', { class: 'bar2' }, el('div', { style: `width:${r.total ? r.done / r.total * 100 : 0}%;background:${r.p.color}` })),
+      el('span', { class: 'n' }, `${r.done}/${r.total}`)));
+  }
+}
+function renderBoothNext() {
+  const b = $('#boothNext'); b.innerHTML = '';
+  const done = S.pack.lines.filter(l => l.take).length;
+  if (S.isHost) b.append(el('button', { class: 'primary big wide', onclick: () => { if (recState === 'idle') setPhase('premiere'); } }, 'Everyone to the premiere →'),
+    el('p', { class: 'meta', style: 'text-align:center' }, `${done}/${S.pack.lines.length} lines recorded. Unrecorded ones use the original voice.`));
+  else b.append(el('div', { class: 'panel', style: 'text-align:center' }, 'When everyone\'s done, the host starts the premiere.'));
+}
+function renderJudges(line, animate) {
+  const j = $('#judges'); j.innerHTML = '';
+  const take = line.take;
+  if (!take) return j.append(el('div', { class: 'jnote' }, canRecord(line) ? 'Listen to the original, then hit record. The panel will weigh in.' : `Waiting for ${nameOf(ownerOf(line))} to record this line.`));
+  if (!take.judges) return j.append(el('div', { class: 'jnote' }, `Recorded by ${take.name}.`));
+  take.judges.forEach((r, k) => {
+    const J = JUDGES[k]; if (!J) return;
+    const color = r.s >= 7 ? 'var(--green)' : r.s >= 4 ? 'var(--amber)' : 'var(--red)';
+    j.append(el('div', { class: 'judge' + (animate ? ' pop' : ''), style: animate ? `animation-delay:${k * 0.25}s` : '' },
+      el('div', { class: 'n' }, `${J.name} · ${J.role}`),
+      el('div', { class: 's', style: `color:${color}` }, J.dec ? Number(r.s).toFixed(1) : r.s),
+      el('div', { class: 'q' }, r.quip)));
+  });
+  j.append(el('div', { class: 'jtotal' }, `${take.name} · ${takeTotal(take).toFixed(1)} / 30`));
+}
+function step(d) {
+  if (recState !== 'idle') return;
+  const vis = visibleLines(), nx = vis[vis.indexOf(curLine()) + d];
+  if (!nx) return;
+  stopPreview(); stopScene(); S.idx = S.pack.lines.indexOf(nx); renderLine(); renderList();
+}
+async function playOriginal() {
+  const line = curLine(); if (!line?.audio || recState !== 'idle') return;
+  stopPreview(); stopScene(); ac();
+  try { playBuf(await refBuf(line)); } catch { toast('Could not play this line\'s audio.'); }
+}
+function playTake() {
+  const line = curLine(); if (!line?.take || recState !== 'idle') return;
+  stopPreview(); stopScene(); ac(); playBuf(line.take.buf, 1.2);
+}
+// Play the scene around this line (video + music + everyone's voices) on the booth screen.
+async function playInScene() {
+  const line = curLine(); if (!line || recState !== 'idle') return;
+  stopPreview(); stopScene(); ac();
+  await Promise.all([backBuf(S.pack).catch(() => null), ...S.pack.lines.map(l => refBuf(l).catch(() => null))]);
+  const ts = line.ts[0] ?? 0, len = (line.take?.buf || line.refBuf)?.duration || 2;
+  $('#stageCv').hidden = false;
+  startShow(Math.max(0, ts - 3), { canvas: $('#stageCv'), until: ts + len + 1.5, captions: false, fill: true, onEnd: () => { $('#stageCv').hidden = true; } });
+}
+function stopScene() { if (P.running && P.canvas === $('#stageCv')) stopShow(true); $('#stageCv').hidden = true; }
+
+/* ---------------- Recording ---------------- */
+let micStream = null, analyser = null, mr = null, recTimer = null, recState = 'idle', cancelCount = false;
+async function getMic() {
+  if (micStream && micStream.active) return;
+  if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'Insecure' });
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  analyser = ac().createAnalyser(); analyser.fftSize = 1024;
+  AC.createMediaStreamSource(micStream).connect(analyser);   // meter only
+}
+function micError(e) {
+  if (e.name === 'NotAllowedError') return 'Mic access was blocked. Click the lock/mic icon in the address bar, allow the microphone, and try again.';
+  if (e.name === 'NotFoundError') return 'No microphone found. Plug one in and try again.';
+  if (e.name === 'Insecure') return 'The browser hides the mic on this page. Use the https:// link or open the file directly.';
+  return 'Could not open the microphone: ' + (e.message || e.name);
+}
+function setRecUI() {
+  const b = $('#bRec');
+  b.classList.toggle('live', recState === 'rec');
+  b.firstChild.textContent = recState === 'rec' ? '■ Stop' : recState === 'count' ? '✕ Cancel' : recState === 'busy' ? '… Processing' : '● Record';
+  b.disabled = recState === 'busy';
+  $('#onair').classList.toggle('live', recState === 'rec');
+  $('#stage').classList.toggle('rec', recState === 'rec');
+  if (recState !== 'idle') for (const id of ['#bOrig', '#bTake', '#bScene', '#bPrev', '#bNext']) $(id).disabled = true;
+  else {
+    renderLine();
+    if (S.inGame && S.pack && S.screen !== S.phase) setTimeout(() => recState === 'idle' && S.screen !== S.phase && go(S.phase), 400);   // host moved on while we were recording
+  }
+}
+function meterLoop() {
+  const buf = new Float32Array(analyser.fftSize);
+  const tick = () => {
+    if (recState !== 'rec') { $('#meterFill').style.width = '0'; return; }
+    analyser.getFloatTimeDomainData(buf);
+    let pk = 0; for (const x of buf) pk = Math.max(pk, Math.abs(x));
+    $('#meterFill').style.width = Math.min(100, Math.sqrt(pk) * 130) + '%';
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+async function toggleRec() {
+  if (recState === 'rec') return stopRec();
+  if (recState === 'count') { cancelCount = true; return; }
+  if (recState !== 'idle') return;
+  const line = curLine(); if (!line || !canRecord(line)) return;
+  try { await getMic(); } catch (e) { toast(micError(e), 7000); return; }
+  stopPreview(); stopScene();
+  const ref = await refBuf(line).catch(() => null);
+  if ($('#optCount').checked) {
+    recState = 'count'; cancelCount = false; setRecUI();
+    const cd = $('#countdown'); cd.hidden = false;
+    for (let i = 3; i > 0 && !cancelCount; i--) { cd.textContent = i; beep(i === 1 ? 880 : 620); await sleep(500); }
+    cd.hidden = true;
+    if (cancelCount) { recState = 'idle'; setRecUI(); return; }
+  }
+  const chunks = [];
+  mr = new MediaRecorder(micStream);
+  mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+  mr.onstop = () => finishTake(line, new Blob(chunks, { type: mr.mimeType }));
+  mr.start();
+  recState = 'rec'; setRecUI(); meterLoop();
+  recTimer = setTimeout(stopRec, (ref ? Math.max(3, ref.duration * 1.8 + 1.5) : 12) * 1000);
+}
+function stopRec() {
+  if (recState !== 'rec') return;
+  clearTimeout(recTimer); recState = 'busy'; setRecUI();
+  try { mr.stop(); } catch { recState = 'idle'; setRecUI(); }
+}
+async function finishTake(line, blob) {
+  try {
+    const raw = await decode(blob);
+    const trimmed = trimSilence(toMono(raw), raw.sampleRate);
+    if (!trimmed) toast('I heard nothing. Is the right mic selected?');
+    else {
+      const buf = mkBuf(trimmed, raw.sampleRate);
+      line.take = { buf, pid: S.me.id, name: S.me.name, judges: await judge(line, buf) };
+      shareTake(line);
+    }
+  } catch (e) { console.error(e); toast('Could not process that recording: ' + e.message); }
+  recState = 'idle'; setRecUI(); renderList(); renderProgress();
+  if (line.take?.pid === S.me.id && curLine() === line) {
+    renderJudges(line, true);
+    if ($('#optAutoplay').checked) playBuf(line.take.buf, 1.2);
+  }
+}
+$('#bOrig').onclick = playOriginal;
+$('#bRec').onclick = toggleRec;
+$('#bTake').onclick = playTake;
+$('#bScene').onclick = playInScene;
+$('#bPrev').onclick = () => step(-1);
+$('#bNext').onclick = () => step(1);
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (S.screen === 'record') {
+    const k = e.key.toLowerCase();
+    if (k === ' ') { e.preventDefault(); toggleRec(); }
+    else if (k === 'o') playOriginal();
+    else if (k === 'p') playTake();
+    else if (k === 's') playInScene();
+    else if (k === 'arrowright' || k === 'n') step(1);
+    else if (k === 'arrowleft' || k === 'b') step(-1);
+  } else if (S.screen === 'premiere' && e.key === ' ' && S.isHost) { e.preventDefault(); togglePlay(); }
+});
+
+/* ================================================================
+   VIDEO: native <video> when the browser can play the file,
+   otherwise ogv.js (plays .ogv/Theora everywhere, incl. Chrome).
+   ================================================================ */
+const V = { pack: null, kind: 'none', el: null, ok: false, w: 1280, h: 720, dur: 0, note: '', loading: null };
+function preloadVideo() { if (S.pack) loadVideo(S.pack).catch(e => console.warn(e)); }
+function loadVideo(p) {
+  if (V.pack === p && V.loading) return V.loading;
+  V.pack = p;
+  return V.loading = (async () => {
+    resetVideo();
+    if (!p.video) { V.note = 'This pack has no video, so the line pictures play as a slideshow.'; return; }
+    const name = p.video.name.toLowerCase(), isOgg = /\.(ogv|ogg)$/.test(name);
+    const type = isOgg ? 'video/ogg' : name.endsWith('.webm') ? 'video/webm' : 'video/mp4';
+    await useVideoBlob(new Blob([await p.video.get()], { type }), isOgg);
+  })();
+}
+function resetVideo() {
+  if (V.el) { try { V.el.pause(); } catch {} if (V.kind === 'ogv') V.el.remove(); }
+  Object.assign(V, { kind: 'none', el: null, ok: false, w: 1280, h: 720, dur: 0, note: '' });
+}
+async function useVideoBlob(blob, isOgg) {
+  const url = URL.createObjectURL(blob);
+  const v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto';
+  if (!isOgg || v.canPlayType('video/ogg; codecs="theora"')) {
+    v.src = url;
+    const ok = await new Promise(res => { v.onloadeddata = () => res(true); v.onerror = () => res(false); setTimeout(() => res(v.readyState >= 2), 10000); });
+    if (ok) { Object.assign(V, { kind: 'native', el: v, ok: true, w: v.videoWidth, h: v.videoHeight, dur: v.duration }); return; }
+  }
+  if (isOgg && window.OGVPlayer && location.protocol !== 'file:') {
+    OGVLoader.base = new URL('.', location.href).href.replace(/\/$/, '');
+    const o = new OGVPlayer({ webGL: false });
+    o.muted = true;
+    o.style.cssText = 'position:fixed;left:-10000px;top:0;width:640px;height:360px;pointer-events:none';
+    document.body.append(o);
+    o.src = url; o.load();
+    const ok = await new Promise(res => {
+      const t0 = Date.now();
+      const chk = () => { if (o.videoWidth > 0 && o.duration > 0) res(true); else if (Date.now() - t0 > 20000) res(false); else setTimeout(chk, 150); };
+      chk();
+    });
+    if (ok) {
+      Object.assign(V, { kind: 'ogv', el: o, ok: true, w: o.videoWidth, h: o.videoHeight, dur: o.duration });
+      // decode the first frame so there's a picture before playing
+      try { await o.play(); await sleep(250); o.pause(); o.currentTime = 0; } catch {}
+      return;
+    }
+    o.remove();
+  }
+  V.note = location.protocol === 'file:'
+    ? 'Video needs the online version of this site (opened as a file, the browser blocks the video decoder). Showing the line pictures instead.'
+    : 'Couldn\'t play this video, so the line pictures play as a slideshow. You can load a converted copy below.';
+}
+const vFrame = () => V.kind === 'ogv' ? V.el.querySelector('canvas') : V.el;
+const vTime = () => V.el?.currentTime || 0;
+const vSeeking = () => !!V.el?.seeking;
+function vSeek(t) { try { V.el.currentTime = clamp(t, 0, Math.max(0, V.dur - 0.05)); } catch {} }
+function vPlay() { try { const r = V.el.play(); r?.catch?.(() => {}); } catch {} }
+function vPause() { try { V.el?.pause(); } catch {} }
+$('#vidIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  stopShow(true); resetVideo();
+  V.loading = useVideoBlob(f, /\.(ogv|ogg)$/i.test(f.name));
+  await V.loading;
+  toast(V.ok ? 'Video loaded.' : 'That video didn\'t play either.');
+  if (S.screen === 'premiere') enterPremiere();
+};
+
+/* ================================================================
+   SHOW ENGINE: plays video + backing track + every take in sync.
+   Used for the premiere and for "In scene" previews in the booth.
+   ================================================================ */
+const P = { running: false, t0: 0, offset: 0, dur: 0, srcs: [], imgs: new Map(), canvas: null, until: 0, exporting: false, rec: null, cancelled: false, pending: null, lastFix: 0 };
+
+function drawContain(g, src, sw, sh) {
+  const W = g.canvas.width, H = g.canvas.height;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  if (!src || !sw || !sh) return;
+  const k = Math.min(W / sw, H / sh), w = sw * k, h = sh * k;
+  try { g.drawImage(src, (W - w) / 2, (H - h) / 2, w, h); } catch {}
+}
+function lineAt(t) { let cur = null; for (const l of S.pack.lines) if ((l.ts[0] ?? 0) <= t) cur = l; return cur || S.pack.lines[0]; }
+function draw(t, canvas = P.canvas || $('#cv'), captions = $('#optCaps').checked) {
+  const g = canvas.getContext('2d');
+  if (V.ok) { const f = vFrame(); drawContain(g, f, V.w, V.h); }
+  else {
+    const line = lineAt(t);
+    let img = P.imgs.get(line);
+    if (!img) { img = new Image(); P.imgs.set(line, img); lineImg(line).then(u => { img.src = u; img.onload = () => !P.running && draw(P.offset, canvas, captions); }); }
+    drawContain(g, img.complete ? img : null, img.naturalWidth, img.naturalHeight);
+  }
+  if (captions) drawCaption(g, t);
+}
+function drawCaption(g, t) {
+  const fill = $('#optFill').checked;
+  const active = S.pack.lines.filter(l => { const buf = l.take?.buf || (fill ? l.refBuf : null); return buf && l.ts.some(ts => t >= ts && t <= ts + buf.duration + 0.3); });
+  if (!active.length) return;
+  const W = g.canvas.width, H = g.canvas.height, fs = Math.round(W / 32);
+  g.font = `600 ${fs}px "Bricolage Grotesque", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  active.slice(-2).forEach((l, i, arr) => {
+    const txt = hasName(l) ? l.caption : `${l.chars[0]}: ${l.caption}`;
+    const y = H - fs * 1.4 - (arr.length - 1 - i) * fs * 1.8;
+    const w = Math.min(W - 20, g.measureText(txt).width + fs * 1.2);
+    g.fillStyle = 'rgba(0,0,0,.72)'; g.beginPath();
+    g.roundRect ? g.roundRect(W / 2 - w / 2, y - fs * 0.8, w, fs * 1.6, fs * 0.3) : g.rect(W / 2 - w / 2, y - fs * 0.8, w, fs * 1.6);
+    g.fill();
+    g.fillStyle = l.take ? (colorOf(l.take.pid) || '#fff') : '#bbb';
+    g.fillText(txt, W / 2, y, W - 40);
+  });
+}
+function fitCanvas(c) { const w = V.ok ? V.w : 1280, h = V.ok ? V.h : 720; if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
+const showTime = () => P.running ? AC.currentTime - P.t0 + P.offset : P.offset;
+function computeDur() {
+  const p = S.pack;
+  const last = Math.max(0, ...p.lines.map(l => (l.ts.at(-1) ?? 0) + (l.take?.buf.duration || l.refBuf?.duration || 2)));
+  return Math.max(p.backBuf?.duration || 0, V.ok ? V.dur : 0, last + 1);
+}
+
+function startShow(offset = 0, opts = {}) {
+  stopShow(true);
+  const p = S.pack; ac();
+  const canvas = opts.canvas || $('#cv');
+  fitCanvas(canvas);
+  const t0 = AC.currentTime + 0.25;
+  const bg = AC.createGain(); bg.gain.value = +$('#volBack').value; bg.connect(master);
+  const vg = AC.createGain(); vg.gain.value = +$('#volVoice').value; vg.connect(master);
+  Object.assign(P, { t0, offset, running: true, bg, vg, srcs: [], canvas, until: opts.until ?? P.dur, captions: opts.captions ?? $('#optCaps').checked, onEnd: opts.onEnd || null });
+  const add = (buf, gain, at) => {
+    const s = AC.createBufferSource(); s.buffer = buf; s.connect(gain);
+    if (at >= 0) s.start(t0 + at); else s.start(t0, -at);
+    P.srcs.push(s);
+  };
+  if (p.backBuf && offset < p.backBuf.duration) add(p.backBuf, bg, -offset);
+  const fill = opts.fill ?? $('#optFill').checked;
+  for (const l of p.lines) {
+    const buf = l.take?.buf || (fill ? l.refBuf : null);
+    if (!buf) continue;
+    for (const ts of l.ts) if (ts - offset + buf.duration > 0) add(buf, vg, ts - offset);
+  }
+  if (V.ok) { vSeek(offset); setTimeout(() => P.running && vPlay(), 250); }
+  if (canvas === $('#cv')) $('#pPlay').textContent = '■ Stop';
+  P.lastFix = performance.now();
+  loop();
+}
+function stopShow(quiet) {
+  if (P.running) P.offset = Math.min(showTime(), P.dur);
+  const wasRunning = P.running;
+  P.running = false;
+  for (const s of P.srcs) { try { s.stop(); } catch {} }
+  P.srcs = [];
+  try { P.bg?.disconnect(); P.vg?.disconnect(); } catch {}
+  if (V.ok) vPause();
+  cancelAnimationFrame(P.raf);
+  $('#pPlay').textContent = '▶ Play';
+  if (wasRunning && P.onEnd) { const f = P.onEnd; P.onEnd = null; f(); }
+  if (!quiet && P.exporting) { P.cancelled = true; P.rec?.stop(); }
+}
+function loop() {
+  const t = showTime();
+  // keep the video locked to the audio clock (ogv seeks are slower, so it gets more slack)
+  if (V.ok && t >= 0 && !vSeeking()) {
+    const drift = Math.abs(vTime() - t), slack = V.kind === 'ogv' ? 0.6 : 0.25;
+    if (drift > slack && performance.now() - P.lastFix > 1500) { vSeek(t + (V.kind === 'ogv' ? 0.2 : 0)); P.lastFix = performance.now(); }
+  }
+  draw(t, P.canvas, P.captions);
+  if (P.canvas === $('#cv')) updateBar(t);
+  if (t >= P.until) {
+    const exporting = P.exporting && P.canvas === $('#cv');
+    stopShow(true);
+    if (P.canvas === $('#cv')) { P.offset = 0; updateBar(P.dur); }
+    if (exporting) P.rec?.stop();
+    return;
+  }
+  P.raf = requestAnimationFrame(loop);
+}
+
+/* ================================================================
+   PREMIERE
+   ================================================================ */
+async function enterPremiere() {
+  const p = S.pack;
+  $('#vidNote').textContent = 'Loading the scene…';
+  const cv = $('#cv'); fitCanvas(cv);
+  const g = cv.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height);
+  renderScoreboard(); renderPremNext();
+  try { await Promise.all([backBuf(p).catch(() => null), loadVideo(p), ...p.lines.map(l => refBuf(l).catch(() => null))]); }
+  catch (e) { console.error(e); }
+  if (S.screen !== 'premiere' || S.pack !== p) return;
+  $('#vidNote').textContent = V.note;
+  P.dur = computeDur();
+  fitCanvas(cv);
+  if (!P.running) { if (P.offset >= P.dur) P.offset = 0; if (V.ok) vSeek(P.offset); setTimeout(() => !P.running && draw(P.offset, cv), 200); updateBar(P.offset); }
+  if (P.pending) { const { offset, at } = P.pending; P.pending = null; startShow(offset + (performance.now() - at) / 1000); }
+}
+function updateBar(t) {
+  $('#barFill').style.width = (P.dur ? clamp(t / P.dur, 0, 1) * 100 : 0) + '%';
+  $('#pTime').textContent = `${fmt(t)} / ${fmt(P.dur)}` + (P.exporting ? '  ·  ● saving video' : '');
+}
+function renderPremNext() {
+  const host = S.isHost;
+  $('#pPlay').disabled = !host;
+  $('#bar').classList.toggle('seek', host);
+  $('#pCtrlNote').textContent = host ? 'You control playback for everyone.' : `${nameOf('host')} controls playback. Sit back and watch.`;
+  const box = $('#premNext'); box.innerHTML = '';
+  if (host) box.append(el('button', { class: 'wide', onclick: () => setPhase('record') }, '← Back to the booth for retakes'));
+}
+function togglePlay() {
+  if (!S.isHost || P.exporting) return;
+  if (P.running && P.canvas === $('#cv')) { stopShow(); broadcast({ t: 'stop', offset: P.offset }); }
+  else { const off = P.offset >= P.dur - 0.1 ? 0 : P.offset; startShow(off); broadcast({ t: 'play', offset: off }); }
+}
+function remotePlay(offset) {
+  if (P.exporting) return;
+  if (S.screen !== 'premiere' || !P.dur) { P.pending = { offset, at: performance.now() }; return; }
+  startShow(offset + 0.05);
+}
+function remoteStop(offset) {
+  if (P.exporting) return;
+  stopShow(true); P.offset = offset; if (V.ok) vSeek(offset);
+  setTimeout(() => draw(offset, $('#cv')), 150); updateBar(offset);
+}
+$('#pPlay').onclick = togglePlay;
+$('#bar').onclick = e => {
+  if (!S.isHost || P.exporting) return;
+  const r = e.currentTarget.getBoundingClientRect(), t = clamp((e.clientX - r.left) / r.width, 0, 1) * P.dur;
+  if (P.running) { startShow(t); broadcast({ t: 'play', offset: t }); }
+  else { remoteStop(t); broadcast({ t: 'stop', offset: t }); }
+};
+$('#volBack').oninput = e => P.bg && (P.bg.gain.value = +e.target.value);
+$('#volVoice').oninput = e => P.vg && (P.vg.gain.value = +e.target.value);
+$('#optCaps').onchange = () => !P.running && draw(P.offset, $('#cv'));
+
+/* ---- save the dub as a video file (records in real time) ---- */
+$('#pExport').onclick = () => {
+  if (P.exporting) { stopShow(); return; }
+  const cv = $('#cv');
+  if (!cv.captureStream || !window.MediaRecorder) return toast('This browser can\'t record video. Try Chrome or Firefox.');
+  ac();
+  const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(m => MediaRecorder.isTypeSupported(m));
+  const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...mediaDest.stream.getAudioTracks()]);
+  const chunks = [];
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 5e6 } : undefined);
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = () => {
+    P.exporting = false; $('#pExport').textContent = '⬇ Save as video'; updateBar(P.offset);
+    stream.getVideoTracks().forEach(t => t.stop());
+    if (P.cancelled) { toast('Video save cancelled.'); return; }
+    const type = rec.mimeType || 'video/webm';
+    download(new Blob(chunks, { type }), `${slug(S.pack.title)}-dub.${type.includes('mp4') ? 'mp4' : 'webm'}`);
+    toast('Your dub is downloading! 🎬');
+  };
+  Object.assign(P, { exporting: true, cancelled: false, rec });
+  $('#pExport').textContent = '✕ Cancel';
+  toast('Recording the dub in real time. Keep this tab open and visible until it finishes.', 6000);
+  rec.start(500);
+  startShow(0);
+};
+
+function renderScoreboard() {
+  const sb = $('#scoreboard'); sb.innerHTML = '';
+  const by = new Map();
+  for (const l of S.pack.lines) if (l.take) {
+    const key = l.take.pid, r = by.get(key) || { name: l.take.name, n: 0, pts: 0 };
+    r.n++; r.pts += takeTotal(l.take); by.set(key, r);
+  }
+  const done = S.pack.lines.filter(l => l.take).length;
+  if (!by.size) return sb.append(el('p', { class: 'meta', style: 'margin:0' }, 'No takes yet.'));
+  [...by].sort((a, b) => b[1].pts - a[1].pts).forEach(([pid, r], i) => {
+    sb.append(el('div', { class: 'sb' },
+      el('span', {}, i === 0 ? '👑 ' : '', el('span', { style: `color:${colorOf(pid)};font-weight:600` }, r.name), el('span', { class: 'meta' }, ` · ${r.n} line${r.n > 1 ? 's' : ''}`)),
+      el('b', {}, `${r.pts.toFixed(1)}`)));
+  });
+  sb.append(el('p', { class: 'meta', style: 'margin:10px 0 0' }, `${done} of ${S.pack.lines.length} lines recorded`));
+}
+
+/* ---- backup: takes as files ---- */
+$('#expTakes').onclick = async () => {
+  const p = S.pack, recorded = p.lines.filter(l => l.take);
+  if (!recorded.length) return toast('No takes recorded yet.');
+  const z = new JSZip();
+  const manifest = { format: 'dub-booth-takes', version: 2, pack: p.title, fp: p.fp, takes: [] };
+  recorded.forEach(l => {
+    const file = `takes/${l.id.replace(/[^\w .-]/g, '_')}.wav`;
+    z.file(file, wavEncode(l.take.buf));
+    manifest.takes.push({ line: l.id, player: l.take.name, pid: l.take.pid, judges: l.take.judges, file });
+  });
+  z.file('takes.json', JSON.stringify(manifest, null, 1));
+  download(await z.generateAsync({ type: 'blob' }), `takes-${slug(p.title)}-${slug(S.me.name)}.zip`);
+};
+$('#impTakes').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  const p = S.pack; let n = 0, warn = '';
+  for (const f of files) {
+    try {
+      const z = await JSZip.loadAsync(f), mf = z.file('takes.json');
+      if (!mf) { warn = `${f.name} isn't a takes file.`; continue; }
+      const m = JSON.parse(await mf.async('string'));
+      if (m.pack !== p.title) warn = `Heads up: ${f.name} was recorded for "${m.pack}".`;
+      for (const t of m.takes || []) {
+        const line = p.lines.find(l => l.id === t.line), wf = z.file(t.file);
+        if (!line || !wf) continue;
+        const raw = await ac().decodeAudioData(await wf.async('arraybuffer'));
+        const buf = mkBuf(toMono(raw), raw.sampleRate);
+        line.take = { buf, pid: t.pid || 'import-' + t.player, name: String(t.player || 'Guest').slice(0, 20), judges: Array.isArray(t.judges) ? t.judges : await judge(line, buf) };
+        if (S.isHost) broadcast(takeMsg(line));
+        n++;
+      }
+    } catch (err) { console.error(err); warn = `Couldn't read ${f.name}.`; }
+  }
+  $('#impMsg').textContent = `Imported ${n} take${n === 1 ? '' : 's'}. ${warn}`;
+  renderScoreboard(); if (!P.running) draw(P.offset, $('#cv'));
+};
+
+window.addEventListener('beforeunload', e => { if (S.inGame && (S.isHost || S.pack?.lines.some(l => l.take))) { e.preventDefault(); e.returnValue = ''; } });
+
+go('home');
+</script>
+</body>
+</html>
