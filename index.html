@@ -136,6 +136,13 @@ select{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padd
 .prog .bar2{flex:1;height:8px;background:var(--bg2);border-radius:99px;overflow:hidden}
 .prog .bar2 div{height:100%}
 .prog .n{font-family:var(--mono);font-size:12px;color:var(--dim);width:42px;text-align:right}
+.wavebox{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 14px}
+.wavehead{display:flex;gap:10px;align-items:center;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--dim);flex-wrap:wrap}
+.wavehead .key{margin-left:auto;display:flex;gap:6px;align-items:center}
+.wavehead .key i{width:14px;height:3px;display:inline-block;border-radius:2px}
+.wavehead .lo{background:#ff4fd8}.wavehead .lt{background:#3fd8ff}
+#wave{width:100%;height:120px;display:block;border-radius:8px}
+.wavefoot{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:6px;gap:8px}
 /* premiere */
 .prem{display:grid;grid-template-columns:1fr 330px;gap:20px}
 #cv{width:100%;display:block;background:#000;border-radius:var(--r);border:1px solid var(--line)}
@@ -153,23 +160,6 @@ select{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padd
 details summary{cursor:pointer;color:var(--dim);font-size:14px}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2a2333;border:1px solid #4a405a;padding:12px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;max-width:min(560px,90vw);z-index:20;line-height:1.4}
 #toast.on{opacity:1;transform:translateX(-50%)}
-/* waveform + mic settings */
-.wave{background:#0d1014;border:1px solid #1f3a40;border-radius:12px;padding:10px 12px 8px;margin:0 0 14px}
-.wavehead,.wavefoot{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:#7fd8e6}
-.wavehead b{color:#5ee6ff;font-weight:600}
-.wavehead .lg{display:flex;align-items:center;gap:5px;color:var(--dim)}
-.wavehead .lg i{width:9px;height:9px;display:inline-block;border-radius:2px}
-.wavehead .sp,.wavefoot .sp{flex:1}
-#waveMatch{font-size:15px;color:#5ee6ff;font-weight:600}
-#wave{width:100%;height:120px;display:block;margin:6px 0 4px}
-.wavefoot .dotx{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
-.wavefoot.rec .dotx{background:var(--red);box-shadow:0 0 8px var(--red)}
-.btn-sm{padding:.35em .8em;font-size:14px}
-dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(460px,92vw)}
-dialog::backdrop{background:rgba(0,0,0,.65)}
-dialog .ck{margin:10px 0}
-dialog select,dialog input[type=range]{width:100%}
-dialog input[type=range]{accent-color:var(--red)}
 @media (max-width:900px){.booth,.prem,.lobby,.two{grid-template-columns:1fr}.judge .s{font-size:34px}.packhead .thumb{width:120px}}
 </style>
 </head>
@@ -273,13 +263,10 @@ dialog input[type=range]{accent-color:var(--red)}
       </div>
       <p class="caption" id="lineCaption"></p>
       <div class="meter"><div id="meterFill"></div></div>
-      <div class="wave">
-        <div class="wavehead"><b>OVERLAP WAVEFORM</b>
-          <span class="lg"><i style="background:#ff4fb0"></i>Original</span>
-          <span class="lg"><i style="background:#2ee6ff"></i>Your take</span>
-          <span class="sp"></span><span id="waveDur"></span><span id="waveMatch">Match —%</span></div>
-        <canvas id="wave"></canvas>
-        <div class="wavefoot" id="waveFoot"><span class="dotx"></span><span id="waveStatus">Ready to record</span><span class="sp"></span><span id="waveTime">0.0s</span></div>
+      <div class="wavebox">
+        <div class="wavehead"><span id="winLabel">WINDOW</span><span class="key"><i class="lo"></i>Original<i class="lt"></i>Your take</span></div>
+        <canvas id="wave" width="900" height="120"></canvas>
+        <div class="wavefoot"><span id="winState">Ready to record</span><span id="winTime"></span></div>
       </div>
       <div class="controls">
         <button id="bOrig">▶ Original<kbd>O</kbd></button>
@@ -295,7 +282,6 @@ dialog input[type=range]{accent-color:var(--red)}
       <div class="locks">
         <label class="ck"><input type="checkbox" id="optCount" checked> 3-2-1 countdown</label>
         <label class="ck"><input type="checkbox" id="optAutoplay" checked> Play my take back after recording</label>
-        <button class="btn-sm" id="micBtn">🎙 Mic settings</button>
       </div>
       <div class="judges" id="judges" style="margin-top:14px"></div>
     </div>
@@ -358,22 +344,6 @@ dialog input[type=range]{accent-color:var(--red)}
   </div>
 </section>
 </main>
-<dialog id="micDlg">
-  <h3>🎙 Mic settings</h3>
-  <div class="field"><label for="micDev">Microphone</label><select id="micDev"></select></div>
-  <div class="field"><label for="micGain">Input volume <b id="gainVal"></b></label><input type="range" id="micGain" min="0" max="3" step="0.05"></div>
-  <div class="meter"><div id="micMeter"></div></div>
-  <label class="ck"><input type="checkbox" id="micNs"> Noise suppression</label>
-  <label class="ck"><input type="checkbox" id="micEc"> Echo cancellation</label>
-  <label class="ck"><input type="checkbox" id="micAgc"> Auto volume (auto gain control)</label>
-  <label class="ck"><input type="checkbox" id="micMon"> Hear myself (use headphones!)</label>
-  <label class="ck"><input type="checkbox" id="micMusic"> Play the scene's music while I record (use headphones)</label>
-  <p class="meta" id="micMsg"></p>
-  <div class="row" style="justify-content:space-between">
-    <button id="micTest">● Test: record 3s &amp; play back</button>
-    <button class="primary" id="micClose">Done</button>
-  </div>
-</dialog>
 <div id="toast"></div>
 
 <script src="jszip.min.js"></script>
@@ -383,7 +353,7 @@ dialog input[type=range]{accent-color:var(--red)}
 'use strict';
 /* ================================================================
    Dub Booth: a free online dubbing party game.
-   - Reads packs in the "_pack_info + NNN_Character.txt/.ini" format
+   - Reads packs in the "_pack_info.ini + NNN_Character.txt" format
    - Players connect peer-to-peer (WebRTC via PeerJS); the host's
      browser is the "server" that keeps the lobby state.
    - Takes are sent between players directly; nothing is uploaded
@@ -500,8 +470,7 @@ function parseIni(src) {
 /* ================================================================
    PACK LOADING
    ================================================================ */
-const AUDIO_EXT = ['wav', 'mp3', 'ogg', 'opus', 'm4a', 'flac', 'webm'];
-const LINE_RE = /\.(txt|ini|cfg|cue)$/i;   // packs use any of these for their line files
+const AUDIO_EXT = ['wav', 'mp3', 'ogg', 'oga', 'opus', 'm4a', 'aac', 'flac', 'webm'];
 const IMG_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
 
 async function loadZip(file) {
@@ -529,14 +498,12 @@ function loadFolder(fileList) {
 async function addGroups(groups) {
   const added = [];
   for (const [dir, files] of groups) {
-    const names = [...files.keys()].map(k => k.toLowerCase());
-    const hasInfo = names.some(k => /^_pack_info\.(ini|txt|cfg)$/.test(k));
-    const hasLines = names.some(k => LINE_RE.test(k) && !k.startsWith('_'));
-    if (!hasInfo && !hasLines) continue;
+    if (![...files.keys()].some(k => /^_?pack_info\.ini$/i.test(k))) continue;
     try {
       const p = await buildPack(dir, files);
       const dupe = S.packs.find(x => x.fp === p.fp);
       if (dupe) added.push(dupe); else { S.packs.push(p); added.push(p); }
+      if (p.warnings.length) toast(`Heads up (${p.title}): ` + p.warnings.slice(0, 3).join(' · '), 9000);
     } catch (e) { console.error(e); toast(`Couldn't read a pack: ${e.message}`); }
   }
   return added;
@@ -547,22 +514,29 @@ function fingerprint(lines) {
   let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
   return h.toString(36) + '-' + lines.length;
 }
+function decodeText(buf) {
+  const u8 = new Uint8Array(buf);
+  if (u8[0] === 0xff && u8[1] === 0xfe) return new TextDecoder('utf-16le').decode(u8.subarray(2));
+  if (u8[0] === 0xfe && u8[1] === 0xff) return new TextDecoder('utf-16be').decode(u8.subarray(2));
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(u8); }
+  catch { return new TextDecoder('windows-1252').decode(u8); }   // older Windows text files
+}
 async function buildPack(dir, files) {
   const lower = new Map([...files].map(([k, get]) => [k.toLowerCase(), { name: k, get }]));
   const find = n => lower.get(String(n).toLowerCase());
   const findBase = (base, exts) => { for (const e of exts) { const f = find(base + '.' + e); if (f) return f; } return null; };
-  const readText = async f => new TextDecoder('utf-8').decode(await (await f.get()).arrayBuffer());
-
-  const infoFile = find('_pack_info.ini') || find('_pack_info.txt') || find('_pack_info.cfg');
-  const infoIni = infoFile ? parseIni(await readText(infoFile)) : {};
+  const readText = async f => decodeText(await (await f.get()).arrayBuffer());
+  const infoFile = [...lower.values()].find(f => /^_?pack_info\.ini$/i.test(f.name));
+  if (!infoFile) throw new Error('no _pack_info.ini');
+  const infoIni = parseIni(await readText(infoFile));
   const info = infoIni.data || infoIni._ || {};
-  const lines = [];
+  const lines = [], warnings = [];
   for (const [lk, f] of lower) {
-    if (!LINE_RE.test(lk) || lk.startsWith('_')) continue;
+    if (!lk.endsWith('.txt') || lk.startsWith('_')) continue;
     let cfg;
-    try { const ini = parseIni(await readText(f)); cfg = ini.data || ini._; } catch { continue; }
+    try { const ini = parseIni(await readText(f)); cfg = ini.data || ini._; } catch { warnings.push(`${f.name} can't be read`); continue; }
     if (!cfg || (cfg.caption == null && cfg.dub_timestamps == null)) continue;
-    const base = f.name.replace(/\.[^.]+$/, '');
+    const base = f.name.slice(0, -4);
     const chars = toArr(cfg.dub_characters).map(String).filter(Boolean);
     lines.push({
       id: base,
@@ -575,14 +549,15 @@ async function buildPack(dir, files) {
     });
   }
   if (!lines.length) throw new Error('no line files found');
+  for (const l of lines) if (!l.audio) warnings.push(`${l.id} has no audio file`);
   lines.sort((a, b) => (a.ts[0] ?? 1e9) - (b.ts[0] ?? 1e9) || a.id.localeCompare(b.id, undefined, { numeric: true }));
   const all = [...lower.values()];
   const icon = (info.icon && find(info.icon)) || lines.find(l => l.image)?.image;
   const p = {
     title: String(info.title || dir.replace(/\/$/, '').split('/').pop() || 'Untitled pack'),
     authors: toArr(info.authors).map(String),
-    readme: String(info.readme || info.subtitle || info.description || ''),
-    lines, fp: fingerprint(lines),
+    readme: info.readme ? String(info.readme) : '',
+    lines, warnings, fp: fingerprint(lines),
     video: all.find(f => /^dub_video\./i.test(f.name)) || null,
     backing: all.find(f => /^_backing_track\./i.test(f.name)) || null,
     backBuf: null,
@@ -611,8 +586,16 @@ function ac() {
   return AC;
 }
 async function decode(blob) { return await ac().decodeAudioData(await blob.arrayBuffer()); }
-async function refBuf(line) { if (!line.refBuf && line.audio) line.refBuf = await decode(await line.audio.get()); return line.refBuf; }
-async function backBuf(p) { if (!p.backBuf && p.backing) p.backBuf = await decode(await p.backing.get()); return p.backBuf; }
+const badFiles = new Set();
+function badFile(name, why) { console.warn(why); if (!badFiles.has(name)) { badFiles.add(name); toast(`Can't play "${name}". Re-save it as .wav or .mp3, then reload the pack.`, 9000); } }
+async function refBuf(line) {
+  if (!line.refBuf && line.audio) {
+    try { line.refBuf = await decode(await line.audio.get()); }
+    catch (e) { badFile(line.audio.name, e); line.audio = null; }   // one bad file shouldn't break the game
+  }
+  return line.refBuf;
+}
+async function backBuf(p) { if (!p.backBuf && p.backing) { try { p.backBuf = await decode(await p.backing.get()); } catch (e) { badFile(p.backing.name, e); p.backing = null; } } return p.backBuf; }
 
 let previewSrcs = [];
 function stopPreview() { for (const s of previewSrcs) { try { s.stop(); } catch {} } previewSrcs = []; }
@@ -701,17 +684,16 @@ function pearson(a, b) {
   for (let i = 0; i < n; i++) { const x = a[i] - ma, y = b[i] - mb; num += x * y; da += x * x; db += y * y; }
   return da && db ? num / Math.sqrt(da * db) : 0;
 }
-// How well a take lines up with the original: loudness shape, where the voice is on/off, and length.
-function matchBase(ref, take) {
-  const ea = envelope(toMono(ref), 64), eb = envelope(take.getChannelData(0), 64);
-  const shape = clamp((pearson(ea, eb) + 0.2) / 1.2, 0, 1);
-  let agree = 0; for (let i = 0; i < 64; i++) if ((ea[i] > 0.15) === (eb[i] > 0.15)) agree++;
-  const len = Math.min(ref.duration, take.duration) / Math.max(ref.duration, take.duration);
-  return clamp(0.55 * shape + 0.3 * agree / 64 + 0.15 * len, 0, 1);
-}
 async function judge(line, take) {
+  let base = 0.5;
   const ref = await refBuf(line).catch(() => null);
-  const base = ref ? matchBase(ref, take) : 0.5;
+  if (ref) {
+    const rm = trimSilence(toMono(ref), ref.sampleRate) || toMono(ref);
+    const rd = rm.length / ref.sampleRate, td = take.duration;
+    const lenScore = Math.min(rd, td) / Math.max(rd, td);
+    const shape = clamp((pearson(envelope(rm), envelope(take.getChannelData(0))) + 0.2) / 1.2, 0, 1);
+    base = 0.4 * lenScore + 0.6 * shape;
+  }
   return JUDGES.map(j => {
     let s = clamp(1 + 9 * base + j.bias + (Math.random() * 2 - 1) * j.jitter, 1, 10);
     s = j.dec ? Math.round(s * 10) / 10 : Math.round(s);
@@ -727,11 +709,7 @@ const takeTotal = t => t?.judges ? t.judges.reduce((a, j) => a + j.s, 0) : 0;
 const PREFIX = 'dubbooth-v1-';
 const NET = { peer: null, conns: new Map(), hostConn: null, code: '', status: 'offline' };
 function peerOpts() {
-  const o = { debug: 0, config: { iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' },
-      // free relay for players whose networks block direct connections (best effort)
-      { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }
-    ] } };
+  const o = { debug: 0, config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }] } };
   const custom = new URLSearchParams(location.search).get('peer');   // e.g. ?peer=localhost:9000 for a self-hosted PeerJS server
   if (custom) { const [host, port] = custom.split(':'); Object.assign(o, { host, port: +port || 9000, path: '/', secure: location.protocol === 'https:' }); }
   return o;
@@ -748,29 +726,21 @@ const sendTo = (conn, msg) => { try { if (conn?.open) conn.send(msg); } catch (e
 /* ---------- HOST ---------- */
 function hostStart() {
   if (!window.Peer) { setNet('error', 'no network lib'); return; }
-  // keep the same invite code for the whole game, so the link friends already have keeps working
-  if (!NET.code) NET.code = randCode();
+  NET.code = randCode();
   setNet('connecting', 'connecting…');
   const peer = NET.peer = new Peer(PREFIX + NET.code, peerOpts());
-  let retries = 0, retryT = 0;
-  peer.on('open', () => { retries = 0; setNet('online', 'online'); renderLobby(); });
+  peer.on('open', () => { setNet('online', 'online'); renderLobby(); });
   peer.on('connection', hostConn);
-  // the matchmaking server can drop us; re-register with the same ID (keeps trying for a few minutes)
+  let tries = 0;
+  peer.on('open', () => { tries = 0; });
   peer.on('disconnected', () => {
-    if (peer.destroyed) return;
-    setNet('connecting', 'reconnecting…');
-    clearTimeout(retryT);
-    retryT = setTimeout(() => { try { peer.reconnect(); } catch {} }, Math.min(15000, 1000 * (++retries)));
-    if (retries > 120) { setNet('error', 'can\'t reach server'); renderLobby(); }
+    if (tries++ > 6) { setNet('error', 'can\'t reach server'); renderLobby(); return; }
+    setNet('connecting', 'reconnecting…'); setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch {} }, 1500 * tries);
   });
   peer.on('error', e => {
     console.warn('peer error', e.type, e);
-    if (e.type === 'unavailable-id') {
-      // our old registration is still on the server; wait and claim the same ID again
-      try { peer.destroy(); } catch {}
-      setTimeout(() => { if (NET.code) hostStart(); }, 3000);
-    }
-    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) { setNet('connecting', 'reconnecting…'); renderLobby(); }
+    if (e.type === 'unavailable-id') { peer.destroy(); hostStart(); }
+    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) { setNet('error', 'can\'t reach server'); renderLobby(); }
   });
 }
 function hostConn(conn) {
@@ -838,37 +808,28 @@ function parseCode(s) {
   const m = s.match(/join=([a-z0-9]+)/i);
   return (m ? m[1] : s).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
-function guestJoin(code, name, attempt = 1) {
-  const MAX = 3;
+function guestJoin(code, name) {
   if (!window.Peer) return joinErr('The network library didn\'t load. Check your internet connection.');
   if (NET.peer) { try { NET.peer.destroy(); } catch {} }
   setNet('connecting', 'connecting…');
-  $('#joinBtn').disabled = true;
-  joinErr(attempt === 1 ? 'Connecting…' : `Still trying to reach the host (attempt ${attempt} of ${MAX})…`);
+  $('#joinBtn').disabled = true; joinErr('Connecting…');
   const peer = NET.peer = new Peer(peerOpts());
-  let done = false;
-  const retryOrFail = msg => {
-    if (done || S.inGame) return; done = true;
-    try { peer.destroy(); } catch {}
-    if (attempt < MAX) return setTimeout(() => guestJoin(code, name, attempt + 1), 2000);
-    $('#joinBtn').disabled = false; joinErr(msg); setNet('error', 'not connected');
-  };
-  const giveUp = setTimeout(() => retryOrFail('No answer from the host. Make sure their game page is still open and hasn\'t been refreshed, then try again.'), 25000);
+  const fail = msg => { $('#joinBtn').disabled = false; joinErr(msg); setNet('error', 'not connected'); };
+  const giveUp = setTimeout(() => { if (!S.inGame) fail('No answer from the host. Make sure their game page is still open, then try again.'); }, 15000);
   peer.on('open', () => {
     const conn = NET.hostConn = peer.connect(PREFIX + code, { reliable: true });
     conn.on('open', () => sendTo(conn, { t: 'hello', name }));
-    conn.on('data', m => { clearTimeout(giveUp); done = true; guestOnMsg(m); });
+    conn.on('data', m => { clearTimeout(giveUp); guestOnMsg(m); });
     conn.on('close', () => {
-      if (!S.inGame) return retryOrFail('The host closed the game.');
+      if (!S.inGame) return;
       setNet('error', 'disconnected');
       showBanner('Lost connection to the host.', 'Reconnect', () => { location.hash = 'join=' + code; guestJoin(code, S.me.name); });
     });
   });
   peer.on('error', e => {
     console.warn('peer error', e.type, e);
-    clearTimeout(giveUp);
-    if (e.type === 'peer-unavailable') retryOrFail('Couldn\'t find that game. Check the code, and make sure the host still has the game open.');
-    else if (!S.inGame) retryOrFail('Couldn\'t connect (' + e.type + '). Check your internet and try again.');
+    if (e.type === 'peer-unavailable') { clearTimeout(giveUp); fail('Couldn\'t find that game. Check the code, and make sure the host still has the game open.'); }
+    else if (!S.inGame) { clearTimeout(giveUp); fail('Couldn\'t connect (' + e.type + '). Check your internet and try again.'); }
   });
 }
 function joinErr(msg) { $('#joinErr').textContent = msg; }
@@ -1010,7 +971,7 @@ async function readPackFiles(files, msgEl) {
     msgEl.textContent = `Reading ${f.name}…`;
     try { out.push(...await loadZip(f)); } catch (e) { console.error(e); toast(`${f.name} isn't a readable zip.`); }
   }
-  msgEl.textContent = out.length ? '' : 'No pack found in there. A pack has line files (like 01_name.txt or .ini) next to their audio.';
+  msgEl.textContent = out.length ? '' : 'No pack found in there (a pack has a _pack_info.ini file).';
   return out;
 }
 async function hostGotPacks(added) {
@@ -1032,7 +993,7 @@ function hostPack(p) {
 function wireDrop(dropEl, zipIn, folderBtn, dirIn, msgEl, onPacks) {
   zipIn.onchange = async e => { const f = [...e.target.files]; e.target.value = ''; onPacks(await readPackFiles(f, msgEl)); };
   folderBtn.onclick = e => { e.preventDefault(); dirIn.click(); };
-  dirIn.onchange = async e => { const f = [...e.target.files]; e.target.value = ''; const r = await loadFolder(f); msgEl.textContent = r.length ? '' : 'No pack found in that folder.'; onPacks(r); };
+  dirIn.onchange = async e => { const f = [...e.target.files]; e.target.value = ''; const r = await loadFolder(f); msgEl.textContent = r.length ? '' : 'No _pack_info.ini in that folder.'; onPacks(r); };
   ['dragenter', 'dragover'].forEach(t => dropEl.addEventListener(t, e => { e.preventDefault(); dropEl.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(t => dropEl.addEventListener(t, e => { e.preventDefault(); dropEl.classList.remove('over'); }));
   dropEl.addEventListener('drop', async e => onPacks(await readPackFiles(e.dataTransfer.files, msgEl)));
@@ -1177,8 +1138,9 @@ async function renderLine() {
   $('#bTake').disabled = !line.take;
   $('#bScene').disabled = !(S.pack.backing || V.ok);
   renderJudges(line, false);
-  drawWave();
-  if (!line.refBuf && line.audio) refBuf(line).then(() => curLine() === line && recState === 'idle' && drawWave()).catch(() => {});
+  await refBuf(line).catch(() => null);            // the window needs the original's length
+  if (curLine() !== line || recState !== 'idle') return;
+  drawWave(line);
   const url = await lineImg(line);
   if (curLine() === line) $('#lineImg').src = url;
 }
@@ -1241,11 +1203,11 @@ function step(d) {
 async function playOriginal() {
   const line = curLine(); if (!line?.audio || recState !== 'idle') return;
   stopPreview(); stopScene(); ac();
-  try { const b = await refBuf(line); playBuf(b); animateWave(b.duration); } catch { toast('Could not play this line\'s audio.'); }
+  try { playBuf(await refBuf(line)); } catch { toast('Could not play this line\'s audio.'); }
 }
 function playTake() {
   const line = curLine(); if (!line?.take || recState !== 'idle') return;
-  stopPreview(); stopScene(); ac(); playBuf(line.take.buf, 1.2); animateWave(line.take.buf.duration);
+  stopPreview(); stopScene(); ac(); playBuf(line.take.buf, 1.2);
 }
 // Play the scene around this line (video + music + everyone's voices) on the booth screen.
 async function playInScene() {
@@ -1258,98 +1220,79 @@ async function playInScene() {
 }
 function stopScene() { if (P.running && P.canvas === $('#stageCv')) stopShow(true); $('#stageCv').hidden = true; }
 
-/* ---------------- Mic settings ---------------- */
-const MIC = Object.assign({ deviceId: '', gain: 1, ns: true, ec: true, agc: true, monitor: false, music: false },
-  (() => { try { return JSON.parse(store.get('dubbooth-mic') || '{}'); } catch { return {}; } })());
-const saveMic = () => store.set('dubbooth-mic', JSON.stringify(MIC));
-
-/* ---------------- Recording ----------------
-   The mic runs through: source -> input gain -> analyser (meters)
-                                             -> capture node (records raw samples with their audio-clock time)
-                                             -> monitor gain (hear yourself)
-   A take is captured for exactly the original line's length, starting
-   on the same audio-clock tick as the scene, so it lines up 1:1.      */
-let micStream = null, micSrc = null, inGain = null, analyser = null, capNode = null, monGain = null;
-let recTimer = null, recState = 'idle', cancelCount = false, cancelRec = false;
-const CAP = { active: false, from: 0, N: 0, got: 0, sr: 48000, data: null, line: null, t0: 0, dur: 0, onDone: null };
-
-async function getMic(force = false) {
-  if (micStream && micStream.active && !force) return;
-  if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'Insecure' });
-  const ctx = ac();
-  const want = () => ({ audio: { deviceId: MIC.deviceId ? { exact: MIC.deviceId } : undefined, echoCancellation: MIC.ec, noiseSuppression: MIC.ns, autoGainControl: MIC.agc } });
-  let stream;
-  try { stream = await navigator.mediaDevices.getUserMedia(want()); }
-  catch (e) { if (MIC.deviceId && /Overconstrained|NotFound/.test(e.name)) { MIC.deviceId = ''; saveMic(); stream = await navigator.mediaDevices.getUserMedia(want()); } else throw e; }
-  if (micStream) micStream.getTracks().forEach(t => t.stop());
-  try { micSrc?.disconnect(); } catch {}
-  micStream = stream; micSrc = ctx.createMediaStreamSource(stream);
-  if (!inGain) {
-    inGain = ctx.createGain(); analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
-    // ScriptProcessor works in every browser; playbackTime tells us where each block sits on the audio clock
-    const BS = 4096;   // bigger blocks = fewer callbacks, so a busy page drops fewer samples
-    capNode = ctx.createScriptProcessor(BS, 1, 1); monGain = ctx.createGain();
-    capNode.onaudioprocess = e => onCapChunk({ f: Math.round(e.playbackTime * ctx.sampleRate) - BS, d: e.inputBuffer.getChannelData(0) });
-    const sink = ctx.createGain(); sink.gain.value = 0;          // keeps the capture node running, silently
-    inGain.connect(analyser); inGain.connect(capNode); capNode.connect(sink); sink.connect(ctx.destination);
-    inGain.connect(monGain); monGain.connect(ctx.destination);   // monitor never goes into exports
+/* ---- overlap waveform: this line's window, the original, and your take on top ---- */
+function drawWave(line, elapsed = null) {
+  const cv = $('#wave'), g = cv.getContext('2d'), W = cv.width, H = cv.height, mid = H / 2;
+  g.fillStyle = '#0a080d'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#2c2636'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
+  if (!line?.refBuf) { $('#winLabel').textContent = 'NO ORIGINAL AUDIO FOR THIS LINE'; $('#winTime').textContent = ''; return; }
+  const win = line.refBuf.duration;
+  $('#winLabel').textContent = `${win.toFixed(1)}s WINDOW`;
+  const trace = (buf, color) => {
+    const d = trimSilence(toMono(buf), buf.sampleRate) || toMono(buf);
+    const env = envelope(d, 300), span = (d.length / buf.sampleRate) / win * W;
+    g.strokeStyle = color; g.lineWidth = 2; g.beginPath();
+    env.forEach((v, i) => { const x = i / (env.length - 1) * span, y = mid - v * mid * 0.9; i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.stroke();
+  };
+  trace(line.refBuf, '#ff4fd8');
+  if (line.take) trace(line.take.buf, '#3fd8ff');
+  if (elapsed != null) {
+    const x = clamp(elapsed / win, 0, 1) * W;
+    g.strokeStyle = '#ff3d57'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+  } else {
+    $('#winState').textContent = line.take ? 'Take saved' : 'Ready to record';
+    $('#winTime').textContent = line.take ? `your take: ${line.take.buf.duration.toFixed(1)}s` : '';
   }
-  inGain.gain.value = MIC.gain; monGain.gain.value = MIC.monitor ? 1 : 0;
-  micSrc.connect(inGain);
 }
-function onCapChunk({ f, d }) {
-  if (!CAP.active) return;
-  const off = f - CAP.from;                       // where this chunk lands in the take
-  const a = Math.max(0, -off), b = Math.min(d.length, CAP.N - off);
-  if (b > a) { CAP.data.set(d.subarray(a, b), off + a); CAP.got = Math.max(CAP.got, off + b); }
-}
-function startCapture(t0, dur) {
-  const sr = AC.sampleRate;
-  Object.assign(CAP, { active: true, from: Math.round(t0 * sr), N: Math.round(dur * sr), got: 0, sr, data: new Float32Array(Math.round(dur * sr)), t0, dur });
+
+/* ---------------- Recording ---------------- */
+let micStream = null, analyser = null, mr = null, recTimer = null, recTick = null, recState = 'idle', cancelCount = false;
+async function getMic() {
+  if (micStream && micStream.active) return;
+  if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'Insecure' });
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  analyser = ac().createAnalyser(); analyser.fftSize = 1024;
+  AC.createMediaStreamSource(micStream).connect(analyser);   // meter only
 }
 function micError(e) {
   if (e.name === 'NotAllowedError') return 'Mic access was blocked. Click the lock/mic icon in the address bar, allow the microphone, and try again.';
   if (e.name === 'NotFoundError') return 'No microphone found. Plug one in and try again.';
-  if (e.name === 'Insecure') return 'The browser hides the mic on this page. Use the https:// link.';
+  if (e.name === 'Insecure') return 'The browser hides the mic on this page. Use the https:// link or open the file directly.';
   return 'Could not open the microphone: ' + (e.message || e.name);
 }
 function setRecUI() {
   const b = $('#bRec');
   b.classList.toggle('live', recState === 'rec');
-  b.firstChild.textContent = recState === 'rec' ? '✕ Cancel' : recState === 'count' ? '✕ Cancel' : recState === 'busy' ? '… Processing' : '● Record';
+  b.firstChild.textContent = recState === 'rec' ? '■ Stop' : recState === 'count' ? '✕ Cancel' : recState === 'busy' ? '… Processing' : '● Record';
   b.disabled = recState === 'busy';
   $('#onair').classList.toggle('live', recState === 'rec');
   $('#stage').classList.toggle('rec', recState === 'rec');
-  $('#waveFoot').classList.toggle('rec', recState === 'rec');
-  if (recState !== 'idle') for (const id of ['#bOrig', '#bTake', '#bScene', '#bPrev', '#bNext', '#micBtn']) $(id).disabled = true;
+  if (recState !== 'idle') for (const id of ['#bOrig', '#bTake', '#bScene', '#bPrev', '#bNext']) $(id).disabled = true;
   else {
-    $('#micBtn').disabled = false;
     renderLine();
     if (S.inGame && S.pack && S.screen !== S.phase) setTimeout(() => recState === 'idle' && S.screen !== S.phase && go(S.phase), 400);   // host moved on while we were recording
   }
 }
-function levelLoop(fillEl, keepGoing) {
-  const buf = new Float32Array(1024);
+function meterLoop() {
+  const buf = new Float32Array(analyser.fftSize);
   const tick = () => {
-    if (!keepGoing() || !analyser) { fillEl.style.width = '0'; return; }
+    if (recState !== 'rec') { $('#meterFill').style.width = '0'; return; }
     analyser.getFloatTimeDomainData(buf);
     let pk = 0; for (const x of buf) pk = Math.max(pk, Math.abs(x));
-    fillEl.style.width = Math.min(100, Math.sqrt(pk) * 130) + '%';
+    $('#meterFill').style.width = Math.min(100, Math.sqrt(pk) * 130) + '%';
     requestAnimationFrame(tick);
   };
   tick();
 }
-
 async function toggleRec() {
-  if (recState === 'rec') { cancelRec = true; return finishRec(); }
+  if (recState === 'rec') return stopRec();
   if (recState === 'count') { cancelCount = true; return; }
   if (recState !== 'idle') return;
   const line = curLine(); if (!line || !canRecord(line)) return;
   try { await getMic(); } catch (e) { toast(micError(e), 7000); return; }
   stopPreview(); stopScene();
   const ref = await refBuf(line).catch(() => null);
-  if (MIC.music) await backBuf(S.pack).catch(() => null);
-  const dur = ref ? ref.duration : 4;
   if ($('#optCount').checked) {
     recState = 'count'; cancelCount = false; setRecUI();
     const cd = $('#countdown'); cd.hidden = false;
@@ -1357,181 +1300,44 @@ async function toggleRec() {
     cd.hidden = true;
     if (cancelCount) { recState = 'idle'; setRecUI(); return; }
   }
-  // play the clip (picture/video, no voices) and record for exactly the line's length
-  const ts = line.ts[0] ?? 0;
-  $('#stageCv').hidden = false;
-  startShow(ts, { canvas: $('#stageCv'), until: ts + dur, captions: false, voices: false, music: MIC.music });
-  startCapture(P.t0, dur);
-  CAP.line = line; cancelRec = false;
-  recState = 'rec'; setRecUI();
-  levelLoop($('#meterFill'), () => recState === 'rec');
-  waveLoop();
-  recTimer = setTimeout(finishRec, (P.t0 - AC.currentTime + dur + 0.3) * 1000);   // small tail so the last chunk arrives
+  const chunks = [];
+  mr = new MediaRecorder(micStream);
+  mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+  mr.onstop = () => finishTake(line, new Blob(chunks, { type: mr.mimeType }));
+  const win = ref ? ref.duration : 6;              // this line's window = the original clip's length
+  mr.start();
+  recState = 'rec'; setRecUI(); meterLoop();
+  $('#winState').textContent = '● REC: stops when the clip ends';
+  const t0 = performance.now();
+  recTick = setInterval(() => {
+    const el = (performance.now() - t0) / 1000;
+    $('#winTime').textContent = `${Math.min(el, win).toFixed(1)} / ${win.toFixed(1)}s`;
+    drawWave(line, el);
+  }, 50);
+  recTimer = setTimeout(stopRec, (win + 0.35) * 1000);   // hard stop at the end of the window
 }
-async function finishRec() {
+function stopRec() {
   if (recState !== 'rec') return;
-  clearTimeout(recTimer); CAP.active = false;
-  recState = 'busy'; setRecUI(); stopScene();
-  const line = CAP.line;
-  if (!cancelRec) {
-    let peak = 0; for (let i = 0; i < CAP.data.length; i++) peak = Math.max(peak, Math.abs(CAP.data[i]));
-    if (peak < 0.01) toast('I heard nothing. Check your mic in 🎙 Mic settings.', 5000);
+  clearTimeout(recTimer); clearInterval(recTick); recTick = null; recState = 'busy'; setRecUI();
+  try { mr.stop(); } catch { recState = 'idle'; setRecUI(); }
+}
+async function finishTake(line, blob) {
+  try {
+    const raw = await decode(blob);
+    const trimmed = trimSilence(toMono(raw), raw.sampleRate);
+    if (!trimmed) toast('I heard nothing. Is the right mic selected?');
     else {
-      const buf = mkBuf(CAP.data, CAP.sr);
+      const buf = mkBuf(trimmed, raw.sampleRate);
       line.take = { buf, pid: S.me.id, name: S.me.name, judges: await judge(line, buf) };
       shareTake(line);
     }
-  }
+  } catch (e) { console.error(e); toast('Could not process that recording: ' + e.message); }
   recState = 'idle'; setRecUI(); renderList(); renderProgress();
-  if (!cancelRec && line.take?.pid === S.me.id && curLine() === line) {
+  if (line.take?.pid === S.me.id && curLine() === line) {
     renderJudges(line, true);
-    if ($('#optAutoplay').checked) { playBuf(line.take.buf, 1.2); animateWave(line.take.buf.duration); }
+    if ($('#optAutoplay').checked) playBuf(line.take.buf, 1.2);
   }
 }
-
-/* ---------------- Overlap waveform ---------------- */
-const WAVE = { anim: 0, play: null, cache: new WeakMap() };
-function colPeaks(data, cols, upto = data.length) {
-  const out = new Float32Array(cols), step = data.length / cols;
-  for (let c = 0; c < cols; c++) {
-    const a = Math.floor(c * step), b = Math.min(upto, Math.floor((c + 1) * step));
-    let m = 0; for (let i = a; i < b; i += 2) { const v = Math.abs(data[i]); if (v > m) m = v; }
-    out[c] = m;
-  }
-  return out;
-}
-function refPeaks(buf, cols) {
-  let e = WAVE.cache.get(buf);
-  if (!e || e.cols !== cols) { e = { cols, p: colPeaks(toMono(buf), cols) }; WAVE.cache.set(buf, e); }
-  return e.p;
-}
-function drawWave(playT = null) {
-  const cv = $('#wave'); if (!cv || S.screen !== 'record') return;
-  const dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
-  if (!W) return;
-  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
-  const g = cv.getContext('2d'), line = curLine();
-  g.clearRect(0, 0, W, H);
-  const padX = 28 * dpr, x0 = padX, x1 = W - padX, mid = H / 2, amp = H / 2 - 6 * dpr;
-  const live = recState === 'rec' && CAP.line === line;
-  const ref = line?.refBuf, take = live ? null : line?.take?.buf;
-  const dur = live ? CAP.dur : ref?.duration || take?.duration || 1;
-  const tx = t => x0 + clamp(t / dur, 0, 1) * (x1 - x0);
-  // grid
-  g.strokeStyle = '#18262b'; g.lineWidth = 1;
-  for (let i = 0; i <= 10; i++) { const x = x0 + (x1 - x0) * i / 10; g.beginPath(); g.moveTo(x, 4); g.lineTo(x, H - 4); g.stroke(); }
-  g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.strokeStyle = '#25414a'; g.stroke();
-  // start / end markers
-  g.setLineDash([4 * dpr, 4 * dpr]); g.strokeStyle = '#ff4fb0';
-  for (const x of [x0, x1]) { g.beginPath(); g.moveTo(x, 2); g.lineTo(x, H - 2); g.stroke(); }
-  g.setLineDash([]);
-  g.fillStyle = '#6b8a92'; g.font = `${10 * dpr}px "JetBrains Mono", monospace`; g.textBaseline = 'top';
-  g.textAlign = 'right'; g.fillText('0.0', x0 - 4 * dpr, 4 * dpr);
-  g.textAlign = 'left'; g.fillText(dur.toFixed(1), x1 + 4 * dpr, 4 * dpr);
-  const cols = Math.max(10, Math.floor((x1 - x0) / (2 * dpr)));
-  const shape = (pk, n, fill, stroke, upto = n) => {
-    let mx = 1e-6; for (let i = 0; i < n; i++) mx = Math.max(mx, pk[i]);
-    const k = amp / Math.max(mx, 0.05), cw = (x1 - x0) / n;
-    g.beginPath(); g.moveTo(x0, mid);
-    for (let i = 0; i < upto; i++) g.lineTo(x0 + i * cw, mid - pk[i] * k);
-    for (let i = upto - 1; i >= 0; i--) g.lineTo(x0 + i * cw, mid + pk[i] * k);
-    g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = stroke; g.lineWidth = 1.2 * dpr; g.stroke();
-  };
-  if (ref) shape(refPeaks(ref, cols), cols, 'rgba(255,79,176,.35)', '#ff4fb0');
-  if (live && CAP.got > 0) {
-    const upto = Math.min(cols, Math.ceil(CAP.got / CAP.N * cols));
-    shape(colPeaks(CAP.data, cols, CAP.got), cols, 'rgba(46,230,255,.28)', '#2ee6ff', upto);
-  } else if (take) {
-    // older/imported takes may be a different length: draw them on the same time scale
-    const tc = Math.max(2, Math.round(cols * Math.min(1, take.duration / dur)));
-    const pk = refPeaks(take, tc), cw = (x1 - x0) / cols; let mx = 1e-6; for (const v of pk) mx = Math.max(mx, v);
-    const k = amp / Math.max(mx, 0.05);
-    g.beginPath(); g.moveTo(x0, mid);
-    for (let i = 0; i < tc; i++) g.lineTo(x0 + i * cw, mid - pk[i] * k);
-    for (let i = tc - 1; i >= 0; i--) g.lineTo(x0 + i * cw, mid + pk[i] * k);
-    g.closePath(); g.fillStyle = 'rgba(46,230,255,.28)'; g.fill(); g.strokeStyle = '#2ee6ff'; g.lineWidth = 1.2 * dpr; g.stroke();
-  }
-  // playhead
-  if (playT != null) { const x = tx(playT); g.strokeStyle = '#fff'; g.lineWidth = 2 * dpr; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
-  // header / footer text
-  $('#waveDur').textContent = `${dur.toFixed(1)}S WINDOW`;
-  let match = null;
-  if (line?.take && ref) { if (line.take.match == null) line.take.match = matchBase(ref, line.take.buf); match = line.take.match; }
-  $('#waveMatch').textContent = live ? 'Match …' : match == null ? 'Match —%' : `Match ${Math.round(match * 100)}%`;
-  $('#waveStatus').textContent = live ? `Recording · match the pink line!` : line && !canRecord(line) ? `${nameOf(ownerOf(line))}'s line` : 'Ready to record';
-  $('#waveTime').textContent = `${(playT ?? 0).toFixed(1)}s`;
-}
-function waveLoop() {
-  cancelAnimationFrame(WAVE.anim);
-  let last = 0;
-  const tick = now => {
-    if (recState !== 'rec') { drawWave(); return; }
-    if (now - last > 33) { last = now; drawWave(clamp(AC.currentTime - CAP.t0, 0, CAP.dur)); }
-    WAVE.anim = requestAnimationFrame(tick);
-  };
-  tick(0);
-}
-function animateWave(dur) {
-  cancelAnimationFrame(WAVE.anim);
-  const start = AC.currentTime;
-  const tick = () => {
-    const t = AC.currentTime - start;
-    if (recState !== 'idle' || !previewSrcs.length || t > dur) { drawWave(); return; }
-    drawWave(t);
-    WAVE.anim = requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
-window.addEventListener('resize', () => recState === 'idle' && drawWave());
-
-/* ---------------- Mic settings dialog ---------------- */
-const dlg = $('#micDlg');
-async function fillDevices() {
-  const sel = $('#micDev'); sel.innerHTML = '';
-  let devs = [];
-  try { devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput'); } catch {}
-  const current = micStream?.getAudioTracks()[0]?.getSettings().deviceId;
-  sel.append(el('option', { value: '' }, 'System default'));
-  devs.filter(d => d.deviceId && d.deviceId !== 'default').forEach((d, i) =>
-    sel.append(el('option', { value: d.deviceId, selected: d.deviceId === (MIC.deviceId || '') }, d.label || `Microphone ${i + 1}`)));
-  if (!MIC.deviceId) sel.value = '';
-  $('#micMsg').textContent = current ? '' : 'Allow the microphone when your browser asks, so you can pick one.';
-}
-function syncMicForm() {
-  $('#micGain').value = MIC.gain; $('#gainVal').textContent = Math.round(MIC.gain * 100) + '%';
-  $('#micNs').checked = MIC.ns; $('#micEc').checked = MIC.ec; $('#micAgc').checked = MIC.agc;
-  $('#micMon').checked = MIC.monitor; $('#micMusic').checked = MIC.music;
-}
-$('#micBtn').onclick = async () => {
-  if (recState !== 'idle') return;
-  stopPreview(); stopScene();
-  syncMicForm(); dlg.showModal();
-  try { await getMic(); } catch (e) { $('#micMsg').textContent = micError(e); }
-  await fillDevices();
-  levelLoop($('#micMeter'), () => dlg.open);
-};
-const reopenMic = async () => { saveMic(); try { await getMic(true); $('#micMsg').textContent = ''; } catch (e) { $('#micMsg').textContent = micError(e); } };
-$('#micDev').onchange = e => { MIC.deviceId = e.target.value; reopenMic(); };
-$('#micNs').onchange = e => { MIC.ns = e.target.checked; reopenMic(); };
-$('#micEc').onchange = e => { MIC.ec = e.target.checked; reopenMic(); };
-$('#micAgc').onchange = e => { MIC.agc = e.target.checked; reopenMic(); };
-$('#micGain').oninput = e => { MIC.gain = +e.target.value; $('#gainVal').textContent = Math.round(MIC.gain * 100) + '%'; if (inGain) inGain.gain.value = MIC.gain; saveMic(); };
-$('#micMon').onchange = e => { MIC.monitor = e.target.checked; if (monGain) monGain.gain.value = MIC.monitor ? 1 : 0; saveMic(); };
-$('#micMusic').onchange = e => { MIC.music = e.target.checked; saveMic(); };
-$('#micTest').onclick = async () => {
-  const btn = $('#micTest'); if (btn.disabled) return;
-  try { await getMic(); } catch (e) { $('#micMsg').textContent = micError(e); return; }
-  btn.disabled = true; btn.textContent = '● Recording… say something';
-  const t0 = AC.currentTime + 0.05; startCapture(t0, 3);
-  await sleep(3400); CAP.active = false;
-  btn.textContent = '▶ Playing back…';
-  stopPreview(); playBuf(mkBuf(CAP.data, CAP.sr));
-  await sleep(3100);
-  btn.disabled = false; btn.textContent = '● Test: record 3s & play back';
-};
-$('#micClose').onclick = () => dlg.close();
-dlg.addEventListener('close', () => { stopPreview(); drawWave(); });
-
 $('#bOrig').onclick = playOriginal;
 $('#bRec').onclick = toggleRec;
 $('#bTake').onclick = playTake;
@@ -1539,7 +1345,7 @@ $('#bScene').onclick = playInScene;
 $('#bPrev').onclick = () => step(-1);
 $('#bNext').onclick = () => step(1);
 document.addEventListener('keydown', e => {
-  if (e.target.matches('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey || $('#micDlg').open) return;
+  if (e.target.matches('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
   if (S.screen === 'record') {
     const k = e.key.toLowerCase();
     if (k === ' ') { e.preventDefault(); toggleRec(); }
@@ -1579,7 +1385,7 @@ async function useVideoBlob(blob, isOgg) {
   if (!isOgg || v.canPlayType('video/ogg; codecs="theora"')) {
     v.src = url;
     const ok = await new Promise(res => { v.onloadeddata = () => res(true); v.onerror = () => res(false); setTimeout(() => res(v.readyState >= 2), 10000); });
-    if (ok) { Object.assign(V, { kind: 'native', el: v, ok: true, w: v.videoWidth, h: v.videoHeight, dur: v.duration > 0 && isFinite(v.duration) ? v.duration : 0 }); return; }
+    if (ok) { Object.assign(V, { kind: 'native', el: v, ok: true, w: v.videoWidth, h: v.videoHeight, dur: v.duration }); return; }
   }
   if (isOgg && window.OGVPlayer && location.protocol !== 'file:') {
     OGVLoader.base = new URL('.', location.href).href.replace(/\/$/, '');
@@ -1590,12 +1396,11 @@ async function useVideoBlob(blob, isOgg) {
     o.src = url; o.load();
     const ok = await new Promise(res => {
       const t0 = Date.now();
-      const chk = () => { if (o.videoWidth > 0) res(true);   // some packs' videos don't report a length; that's fine
-        else if (Date.now() - t0 > 20000) res(false); else setTimeout(chk, 150); };
+      const chk = () => { if (o.videoWidth > 0 && o.duration > 0) res(true); else if (Date.now() - t0 > 20000) res(false); else setTimeout(chk, 150); };
       chk();
     });
     if (ok) {
-      Object.assign(V, { kind: 'ogv', el: o, ok: true, w: o.videoWidth, h: o.videoHeight, dur: o.duration > 0 && isFinite(o.duration) ? o.duration : 0 });
+      Object.assign(V, { kind: 'ogv', el: o, ok: true, w: o.videoWidth, h: o.videoHeight, dur: o.duration });
       // decode the first frame so there's a picture before playing
       try { await o.play(); await sleep(250); o.pause(); o.currentTime = 0; } catch {}
       return;
@@ -1609,7 +1414,7 @@ async function useVideoBlob(blob, isOgg) {
 const vFrame = () => V.kind === 'ogv' ? V.el.querySelector('canvas') : V.el;
 const vTime = () => V.el?.currentTime || 0;
 const vSeeking = () => !!V.el?.seeking;
-function vSeek(t) { try { V.el.currentTime = clamp(t, 0, V.dur > 0 ? V.dur - 0.05 : 1e9); } catch {} }
+function vSeek(t) { try { V.el.currentTime = clamp(t, 0, Math.max(0, V.dur - 0.05)); } catch {} }
 function vPlay() { try { const r = V.el.play(); r?.catch?.(() => {}); } catch {} }
 function vPause() { try { V.el?.pause(); } catch {} }
 $('#vidIn').onchange = async e => {
@@ -1663,11 +1468,7 @@ function drawCaption(g, t) {
     g.fillText(txt, W / 2, y, W - 40);
   });
 }
-function fitCanvas(c) {
-  let w = V.ok ? V.w : 1280, h = V.ok ? V.h : 720;
-  if (c.id === 'stageCv' && w > 640) { h = Math.round(h * 640 / w); w = 640; }   // the booth preview doesn't need full HD
-  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
-}
+function fitCanvas(c) { const w = V.ok ? V.w : 1280, h = V.ok ? V.h : 720; if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 const showTime = () => P.running ? AC.currentTime - P.t0 + P.offset : P.offset;
 function computeDur() {
   const p = S.pack;
@@ -1689,9 +1490,9 @@ function startShow(offset = 0, opts = {}) {
     if (at >= 0) s.start(t0 + at); else s.start(t0, -at);
     P.srcs.push(s);
   };
-  if (opts.music !== false && p.backBuf && offset < p.backBuf.duration) add(p.backBuf, bg, -offset);
+  if (p.backBuf && offset < p.backBuf.duration) add(p.backBuf, bg, -offset);
   const fill = opts.fill ?? $('#optFill').checked;
-  if (opts.voices !== false) for (const l of p.lines) {
+  for (const l of p.lines) {
     const buf = l.take?.buf || (fill ? l.refBuf : null);
     if (!buf) continue;
     for (const ts of l.ts) if (ts - offset + buf.duration > 0) add(buf, vg, ts - offset);
