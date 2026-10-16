@@ -774,7 +774,11 @@ const takeTotal = t => t?.judges ? t.judges.reduce((a, j) => a + j.s, 0) : 0;
 const PREFIX = 'dubbooth-v1-';
 const NET = { peer: null, conns: new Map(), hostConn: null, code: '', status: 'offline' };
 function peerOpts() {
-  const o = { debug: 0, config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }] } };
+  const o = { debug: 0, config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' },
+      // free relay for networks that block direct connections (phone data, strict Wi-Fi)
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }] } };
   const custom = new URLSearchParams(location.search).get('peer');   // e.g. ?peer=localhost:9000 for a self-hosted PeerJS server
   if (custom) { const [host, port] = custom.split(':'); Object.assign(o, { host, port: +port || 9000, path: '/', secure: location.protocol === 'https:' }); }
   return o;
