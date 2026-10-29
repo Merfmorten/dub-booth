@@ -146,6 +146,13 @@ select{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padd
 /* premiere */
 .prem{display:grid;grid-template-columns:1fr 330px;gap:20px}
 #cv{width:100%;display:block;background:#000;border-radius:var(--r);border:1px solid var(--line)}
+.screenbox{position:relative}
+.vidhost{position:absolute;inset:0;overflow:hidden;background:#000;border-radius:var(--r)}
+.vidhost[hidden]{display:none}
+.vidhost>*{position:absolute!important;left:0!important;top:0!important;width:100%!important;height:100%!important}
+.vidhost video{object-fit:contain}
+.caps{position:absolute;left:0;right:0;bottom:5%;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;padding:0 12px}
+.caps span{background:rgba(0,0,0,.72);padding:.25em .7em;border-radius:.3em;font-weight:600;font-size:clamp(14px,2.2vw,26px);text-align:center}
 .bar{height:10px;background:var(--bg2);border-radius:99px;margin:12px 0;overflow:hidden;border:1px solid var(--line)}
 .bar.seek{cursor:pointer}
 .bar div{height:100%;width:0;background:var(--red)}
@@ -257,6 +264,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
       <div class="stage" id="stage">
         <img id="lineImg" alt="">
         <canvas id="stageCv" width="1280" height="720" hidden></canvas>
+        <div id="stageVid" class="vidhost" hidden></div>
         <div class="tag" id="lineChar"></div>
         <div class="up" id="lineUp"></div>
         <div class="count" id="countdown" hidden></div>
@@ -301,7 +309,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 <section class="screen" id="scr-premiere" hidden>
   <div class="prem">
     <div>
-      <canvas id="cv" width="1280" height="720"></canvas>
+      <div class="screenbox"><canvas id="cv" width="1280" height="720"></canvas><div id="premVid" class="vidhost" hidden></div><div id="capBox" class="caps"></div></div>
       <div class="bar" id="bar"><div id="barFill"></div></div>
       <div class="row" style="justify-content:space-between">
         <div class="row">
@@ -474,7 +482,68 @@ function parseIni(src) {
 const AUDIO_EXT = ['wav', 'mp3', 'ogg', 'oga', 'opus', 'm4a', 'aac', 'flac', 'webm'];
 const IMG_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
 
+/* ---- fast zip reader: reads only the zip's table of contents, then pulls each file out when needed.
+   Stored files are free slices of the zip (no copy); compressed ones use the browser's built-in unzip. ---- */
+async function zipIndex(file) {
+  const tailLen = Math.min(file.size, 65557 + 20);
+  const tail = new DataView(await file.slice(file.size - tailLen).arrayBuffer());
+  let eocd = -1;
+  for (let i = tail.byteLength - 22; i >= 0; i--) if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('not a zip');
+  let count = tail.getUint16(eocd + 10, true), cdSize = tail.getUint32(eocd + 12, true), cdOff = tail.getUint32(eocd + 16, true);
+  if (count === 0xffff || cdSize === 0xffffffff || cdOff === 0xffffffff) {          // zip64 (very big zips)
+    const loc = eocd - 20;
+    if (loc < 0 || tail.getUint32(loc, true) !== 0x07064b50) throw new Error('zip64 locator missing');
+    const zo = Number(tail.getBigUint64(loc + 8, true)), z = new DataView(await file.slice(zo, zo + 56).arrayBuffer());
+    if (z.getUint32(0, true) !== 0x06064b50) throw new Error('bad zip64 record');
+    count = Number(z.getBigUint64(32, true)); cdSize = Number(z.getBigUint64(40, true)); cdOff = Number(z.getBigUint64(48, true));
+  }
+  const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer()), td = new TextDecoder('utf-8');
+  const entries = [];
+  for (let n = 0, p = 0; n < count && p + 46 <= cd.byteLength; n++) {
+    if (cd.getUint32(p, true) !== 0x02014b50) break;
+    const method = cd.getUint16(p + 10, true), nlen = cd.getUint16(p + 28, true), xlen = cd.getUint16(p + 30, true), clen = cd.getUint16(p + 32, true);
+    let csize = cd.getUint32(p + 20, true), usize = cd.getUint32(p + 24, true), off = cd.getUint32(p + 42, true);
+    const name = td.decode(new Uint8Array(cd.buffer, cd.byteOffset + p + 46, nlen));
+    if (csize === 0xffffffff || usize === 0xffffffff || off === 0xffffffff) {       // zip64 sizes live in the extra field
+      for (let q = p + 46 + nlen, end = q + xlen; q + 4 <= end; q += 4 + cd.getUint16(q + 2, true)) {
+        if (cd.getUint16(q, true) !== 1) continue;
+        let r = q + 4;
+        if (usize === 0xffffffff) { usize = Number(cd.getBigUint64(r, true)); r += 8; }
+        if (csize === 0xffffffff) { csize = Number(cd.getBigUint64(r, true)); r += 8; }
+        if (off === 0xffffffff) { off = Number(cd.getBigUint64(r, true)); }
+      }
+    }
+    entries.push({ name, method, csize, off });
+    p += 46 + nlen + xlen + clen;
+  }
+  return entries;
+}
+const zipEntry = (file, e) => async () => {
+  const h = new DataView(await file.slice(e.off, e.off + 30).arrayBuffer());
+  if (h.getUint32(0, true) !== 0x04034b50) throw new Error('broken zip entry: ' + e.name);
+  const start = e.off + 30 + h.getUint16(26, true) + h.getUint16(28, true), data = file.slice(start, start + e.csize);
+  if (e.method === 0) return data;                                                  // stored: just a slice
+  return await new Response(data.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
+};
 async function loadZip(file) {
+  let entries = null;
+  if (typeof DecompressionStream === 'function') {
+    try { entries = await zipIndex(file); if (entries.some(e => e.method !== 0 && e.method !== 8)) entries = null; }
+    catch (e) { console.warn('fast zip reader failed, falling back', e); entries = null; }
+  }
+  if (!entries) return loadZipSlow(file);
+  const groups = new Map();
+  for (const e of entries) {
+    if (e.name.endsWith('/') || e.name.includes('__MACOSX')) continue;
+    const i = e.name.lastIndexOf('/'), dir = e.name.slice(0, i + 1), name = e.name.slice(i + 1);
+    if (!name || name.startsWith('._')) continue;
+    if (!groups.has(dir)) groups.set(dir, new Map());
+    groups.get(dir).set(name, zipEntry(file, e));
+  }
+  return addGroups(groups);
+}
+async function loadZipSlow(file) {   // old way (reads the whole zip into memory); only used if the fast reader can't
   const zip = await JSZip.loadAsync(file);
   const groups = new Map();
   zip.forEach((path, entry) => {
@@ -1267,9 +1336,9 @@ async function playInScene() {
   await withTimeout(Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null), refBuf(line).catch(() => null)]), 20000);
   if (curLine() !== line || sc.hidden) return;   // moved on while it loaded
   const ts = line.ts[0] ?? 0, len = (line.take?.buf || line.refBuf)?.duration || 2;
-  startShow(Math.max(0, ts - SCENE_LEAD), { canvas: sc, until: ts + len + 0.4, captions: false, only: line, onEnd: () => { sc.hidden = true; } });   // just this line's own clip
+  startShow(Math.max(0, ts - SCENE_LEAD), { canvas: sc, until: ts + len + 0.4, captions: false, only: line, onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });   // just this line's own clip
 }
-function stopScene() { if (P.canvas === $('#stageCv')) stopShow(true); $('#stageCv').hidden = true; }
+function stopScene() { if (P.canvas === $('#stageCv')) stopShow(true); $('#stageCv').hidden = true; $('#stageVid').hidden = true; }
 
 /* ---- overlap waveform: original (pink) and your take (blue) on one timeline, live while recording ---- */
 function leadOf(d, sr) {                      // seconds until the first real sound
@@ -1492,7 +1561,8 @@ async function useVideoBlob(blob, isOgg) {
     o.src = url; o.load();
     const ok = await new Promise(res => {
       const t0 = Date.now();
-      const chk = () => { if (o.videoWidth > 0 && o.duration > 0) res(true); else if (Date.now() - t0 > 20000) res(false); else setTimeout(chk, 150); };
+      // ready once it knows its size (some .ogv files never report a length, that's fine)
+      const chk = () => { if (o.videoWidth > 0 && o.readyState >= 1) res(true); else if (Date.now() - t0 > 20000) res(false); else setTimeout(chk, 150); };
       chk();
     });
     if (ok) {
@@ -1572,8 +1642,7 @@ function draw(t, canvas = P.canvas || $('#cv'), captions = $('#optCaps').checked
   if (captions) drawCaption(g, t);
 }
 function drawCaption(g, t) {
-  const fill = $('#optFill').checked;
-  const active = S.pack.lines.filter(l => { const buf = l.take?.buf || (fill ? l.refBuf : null); return buf && l.ts.some(ts => t >= ts && t <= ts + buf.duration + 0.3); });
+  const active = activeCaps(t);
   if (!active.length) return;
   const W = g.canvas.width, H = g.canvas.height, fs = Math.round(W / 32);
   g.font = `600 ${fs}px "Bricolage Grotesque", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -1588,7 +1657,29 @@ function drawCaption(g, t) {
     g.fillText(txt, W / 2, y, W - 40);
   });
 }
-function fitCanvas(c) { const w = V.ok ? V.w : 1280, h = V.ok ? V.h : 720; if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
+function fitCanvas(c) {   // capped at 1280 wide: copying full-HD frames every tick is what made playback lag
+  let w = V.ok ? V.w : 1280, h = V.ok ? V.h : 720; const k = Math.min(1, 1280 / w); w = Math.round(w * k); h = Math.round(h * k);
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+}
+// Show the real video element on screen (no per-frame copying, so it plays at full speed).
+function mountVideo(host) {
+  if (!V.ok || !V.el || !host) return false;
+  if (V.el.parentNode !== host) { V.el.style.cssText = ''; host.append(V.el); }
+  host.hidden = false;
+  return true;
+}
+function activeCaps(t) {
+  const fill = $('#optFill').checked;
+  return S.pack.lines.filter(l => { const buf = l.take?.buf || (fill ? l.refBuf : null); return buf && l.ts.some(ts => t >= ts && t <= ts + buf.duration + 0.3); });
+}
+function setCaps(t) {                 // captions as text over the video; only touches the page when they change
+  const box = $('#capBox');
+  const act = P.captions && P.canvas === $('#cv') ? activeCaps(t).slice(-2) : [];
+  const key = act.map(l => l.id).join('|');
+  if (key === P.capKey) return;
+  P.capKey = key;
+  box.replaceChildren(...act.map(l => el('span', { style: `color:${l.take ? colorOf(l.take.pid) : '#bbb'}` }, hasName(l) ? l.caption : `${l.chars[0]}: ${l.caption}`)));
+}
 const showTime = () => P.running ? AC.currentTime - P.t0 + P.offset : P.offset;
 function computeDur() {
   const p = S.pack;
@@ -1614,8 +1705,10 @@ async function startShow(offset = 0, opts = {}) {
     drawLoading(canvas, 'Loading scene…');
     const landed = await vSeekWait(offset);
     if (my !== showToken) return;
-    if (Math.abs(landed - offset) < 1.5) offset = landed;   // start the sound where the video actually is                // stopped / restarted while we waited
+    if (Math.abs(landed - offset) < 1.5) offset = landed;   // start the sound where the video actually is
   }
+  P.useEl = mountVideo(canvas === $('#stageCv') ? $('#stageVid') : $('#premVid'));
+  P.capKey = null; P.drawKey = null;
   const t0 = AC.currentTime + 0.1;
   const bg = AC.createGain(); bg.gain.value = +$('#volBack').value; bg.connect(master);
   const vg = AC.createGain(); vg.gain.value = +$('#volVoice').value; vg.connect(master);
@@ -1647,6 +1740,7 @@ function stopShow(quiet) {
   try { P.bg?.disconnect(); P.vg?.disconnect(); } catch {}
   if (V.ok) { vPause(); vRate(1); }
   cancelAnimationFrame(P.raf);
+  $('#capBox').replaceChildren(); P.capKey = null;
   $('#pPlay').textContent = '▶ Play';
   if (wasRunning && P.onEnd) { const f = P.onEnd; P.onEnd = null; f(); }
   if (!quiet && P.exporting) { P.cancelled = true; P.rec?.stop(); }
@@ -1660,7 +1754,12 @@ function loop() {
     if (Math.abs(drift) > 2.5 && now - P.lastFix > 5000) { vRate(1); vSeek(t + 0.5); P.lastFix = now; }
     else vRate(clamp(1 - drift * 0.6, 0.75, 1.3));
   }
-  draw(t, P.canvas, P.captions);
+  const copying = !P.useEl || (P.exporting && P.canvas === $('#cv'));   // saving a video needs the frames on the canvas
+  if (copying) {
+    const key = V.ok ? null : lineAt(t).id + '|' + (P.captions ? activeCaps(t).map(l => l.id).join(',') : '');   // slideshow: redraw only when something changed
+    if (key === null || key !== P.drawKey) { P.drawKey = key; draw(t, P.canvas, P.captions); }
+  }
+  if (P.useEl) setCaps(t);
   if (P.canvas === $('#cv')) updateBar(t);
   if (t >= P.until) {
     const exporting = P.exporting && P.canvas === $('#cv');
@@ -1687,6 +1786,7 @@ async function enterPremiere() {
   $('#vidNote').textContent = V.note;
   P.dur = computeDur();
   fitCanvas(cv);
+  if (!mountVideo($('#premVid'))) $('#premVid').hidden = true;
   if (!P.running) { if (P.offset >= P.dur) P.offset = 0; if (V.ok) vSeek(P.offset); setTimeout(() => !P.running && draw(P.offset, cv), 200); updateBar(P.offset); }
   if (P.pending) { const { offset, at } = P.pending; P.pending = null; startShow(offset + (performance.now() - at) / 1000); }
 }
