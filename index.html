@@ -363,6 +363,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 /* ---------------- tiny helpers ---------------- */
 const $ = s => document.querySelector(s);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const withTimeout = (pr, ms) => Promise.race([pr, sleep(ms)]);   // never wait forever on a browser API
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const fmt = t => { t = Math.max(0, t || 0); return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0'); };
@@ -1260,7 +1261,7 @@ async function playInScene() {
   stopPreview(); stopScene(); ac();
   const sc = $('#stageCv'); fitCanvas(sc); sc.hidden = false; P.canvas = sc;
   drawLoading(sc, 'Loading scene…');
-  await Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null), ...S.pack.lines.map(l => refBuf(l).catch(() => null))]);
+  await withTimeout(Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null), ...S.pack.lines.map(l => refBuf(l).catch(() => null))]), 20000);
   if (curLine() !== line || sc.hidden) return;   // moved on while it loaded
   const ts = line.ts[0] ?? 0, len = (line.take?.buf || line.refBuf)?.duration || 2;
   startShow(Math.max(0, ts - 3), { canvas: $('#stageCv'), until: ts + len + 1.5, captions: false, fill: true, onEnd: () => { $('#stageCv').hidden = true; } });
@@ -1458,13 +1459,13 @@ function preloadVideo() { if (S.pack) loadVideo(S.pack).catch(e => console.warn(
 function loadVideo(p) {
   if (V.pack === p && V.loading) return V.loading;
   V.pack = p;
-  return V.loading = (async () => {
+  return V.loading = withTimeout((async () => {
     resetVideo();
     if (!p.video) { V.note = 'This pack has no video, so the line pictures play as a slideshow.'; return; }
     const name = p.video.name.toLowerCase(), isOgg = /\.(ogv|ogg)$/.test(name);
     const type = isOgg ? 'video/ogg' : name.endsWith('.webm') ? 'video/webm' : 'video/mp4';
     await useVideoBlob(new Blob([await p.video.get()], { type }), isOgg);
-  })();
+  })().catch(e => console.warn('video load failed', e)), 30000);
 }
 function resetVideo() {
   if (V.el) { try { V.el.pause(); } catch {} if (V.kind === 'ogv') V.el.remove(); }
@@ -1494,7 +1495,7 @@ async function useVideoBlob(blob, isOgg) {
     if (ok) {
       Object.assign(V, { kind: 'ogv', el: o, ok: true, w: o.videoWidth, h: o.videoHeight, dur: o.duration > 1 && isFinite(o.duration) ? o.duration : 0 });
       // decode the first frame so there's a picture before playing
-      try { await o.play(); await sleep(250); o.pause(); o.currentTime = 0; } catch {}
+      try { const r = o.play(); r?.catch?.(() => {}); await withTimeout(r, 1500); await sleep(250); o.pause(); o.currentTime = 0; } catch {}
       return;
     }
     o.remove();
@@ -1667,7 +1668,7 @@ async function enterPremiere() {
   const cv = $('#cv'); fitCanvas(cv);
   const g = cv.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height);
   renderScoreboard(); renderPremNext();
-  try { await Promise.all([backBuf(p).catch(() => null), loadVideo(p), ...p.lines.map(l => refBuf(l).catch(() => null))]); }
+  try { await withTimeout(Promise.all([backBuf(p).catch(() => null), loadVideo(p), ...p.lines.map(l => refBuf(l).catch(() => null))]), 30000); }
   catch (e) { console.error(e); }
   if (S.screen !== 'premiere' || S.pack !== p) return;
   $('#vidNote').textContent = V.note;
