@@ -185,6 +185,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 .chipx{display:inline-flex;align-items:center;gap:6px;padding:4px 4px 4px 10px;border-radius:99px;background:#2a2333;margin:0 6px 6px 0;font-size:13px}
 .chipx button{padding:0 .45em;border:0;background:transparent;color:var(--dim)}
 @media (max-width:900px){.maker,.mkedit{grid-template-columns:1fr}}
+.ver{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2a2333;border:1px solid #4a405a;padding:12px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;max-width:min(560px,90vw);z-index:20;line-height:1.4}
 #toast.on{opacity:1;transform:translateX(-50%)}
 @media (max-width:900px){.booth,.prem,.lobby,.two{grid-template-columns:1fr}.judge .s{font-size:34px}.packhead .thumb{width:120px}}
@@ -192,7 +193,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span></div>
+  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v29.10-c</span></div>
   <div class="steps" id="steps">
     <button data-phase="lobby">Lobby</button><span class="sep">›</span>
     <button data-phase="record">Booth</button><span class="sep">›</span>
@@ -1968,7 +1969,7 @@ async function startShow(offset = 0, opts = {}) {
   }
   if (V.ok) setTimeout(() => P.running && my === showToken && vPlay(), 100);   // video starts with the sound
   if (canvas === $('#cv')) $('#pPlay').textContent = '■ Stop';
-  P.lastFix = performance.now();
+  P.lastFix = performance.now(); P.wdT = -1; P.wdAt = performance.now();
   loop();
 }
 function stopShow(quiet) {
@@ -1989,6 +1990,16 @@ function stopShow(quiet) {
 function loop() {
   const t = showTime();
   // keep the video locked to the audio clock (ogv seeks are slower, so it gets more slack)
+  // watchdog: if the picture stops moving while the scene should be playing (e.g. headphones switching
+  // when the mic turns on), restart it; if that doesn't help, push it to the right spot
+  if (V.ok && t >= 0 && !V.el.ended) {
+    const vt = vTime(), now = performance.now();
+    if (Math.abs(vt - P.wdT) > 0.01 || vSeeking()) { P.wdT = vt; P.wdAt = now; }
+    else if (now - P.wdAt > 600) {
+      vPlay();
+      if (now - P.wdAt > 1500) { vSeek(t + (V.kind === 'ogv' ? 0.3 : 0)); P.wdAt = now; P.lastFix = now; }
+    }
+  }
   // keep the video on the sound's clock: small drift -> nudge its speed; big drift -> one jump, then wait
   if (V.ok && t >= 0 && !vSeeking()) {
     const drift = vTime() - t, now = performance.now();
