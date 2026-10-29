@@ -165,6 +165,26 @@ select{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padd
 .sb:last-child{border:0}
 .sb b{font-family:var(--mono)}
 details summary{cursor:pointer;color:var(--dim);font-size:14px}
+.dlg{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(440px,92vw)}
+.dlg::backdrop{background:rgba(0,0,0,.6)}
+.dlg label.ck{margin:8px 0}
+.maker{display:grid;grid-template-columns:1fr 360px;gap:20px}
+.mkvid{position:relative;aspect-ratio:16/9;background:#000;border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
+.mkvid video{width:100%;height:100%;object-fit:contain;display:block}
+#mkTl{width:100%;height:110px;display:block;border-radius:10px;background:#0a080d;border:1px solid var(--line);cursor:crosshair;margin-top:12px;touch-action:none}
+.mkctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.mkctl .time{min-width:120px}
+.mkedit{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:end}
+.mkedit .full{grid-column:1/-1}
+.mklines{list-style:none;margin:0;padding:0;max-height:42vh;overflow:auto}
+.mklines li{display:flex;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer}
+.mklines li:hover{background:#1d1824}
+.mklines li.sel{background:#2a1520;box-shadow:inset 3px 0 var(--red)}
+.mklines .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mklines button{padding:.2em .5em}
+.chipx{display:inline-flex;align-items:center;gap:6px;padding:4px 4px 4px 10px;border-radius:99px;background:#2a2333;margin:0 6px 6px 0;font-size:13px}
+.chipx button{padding:0 .45em;border:0;background:transparent;color:var(--dim)}
+@media (max-width:900px){.maker,.mkedit{grid-template-columns:1fr}}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2a2333;border:1px solid #4a405a;padding:12px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;max-width:min(560px,90vw);z-index:20;line-height:1.4}
 #toast.on{opacity:1;transform:translateX(-50%)}
 @media (max-width:900px){.booth,.prem,.lobby,.two{grid-template-columns:1fr}.judge .s{font-size:34px}.packhead .thumb{width:120px}}
@@ -203,6 +223,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
         <span class="meta" id="loadMsg"></span>
       </label>
       <div class="grid" id="packGrid"></div>
+      <button class="wide" id="mkOpen" style="margin-top:14px">🎬 Make a pack from a video</button>
     </div>
     <div class="panel" id="joinPanel">
       <h3>Join a friend</h3>
@@ -288,6 +309,12 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
         <button id="bNext">Next →</button>
       </div>
       <div class="locks">
+        <label class="ck">🎭 Voice <select id="fxSel"></select></label>
+        <button id="micBtn">🎙 Mic settings</button>
+      </div>
+      <div class="locks">
+        <label class="ck"><input type="checkbox" id="optRecVid" checked> Show the scene while recording</label>
+        <label class="ck"><input type="checkbox" id="optRecSnd"> Scene sound while recording (headphones)</label>
         <label class="ck"><input type="checkbox" id="optCount" checked> 3-2-1 countdown</label>
         <label class="ck"><input type="checkbox" id="optAutoplay" checked> Play my take back after recording</label>
       </div>
@@ -351,7 +378,76 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
     </aside>
   </div>
 </section>
+<!-- ===================== PACK MAKER ===================== -->
+<section class="screen" id="scr-maker" hidden>
+  <div class="row" style="justify-content:space-between;margin-bottom:6px">
+    <h2 style="margin:0">🎬 Pack Maker</h2><button id="mkBack">← Back</button>
+  </div>
+  <p class="sub" style="margin-top:4px">Turn any video into a pack: drag over the timeline to mark a line, pick who says it, type what they say. Then play it right away or download the zip to send your friends.</p>
+  <div id="mkStart" class="panel" style="max-width:640px">
+    <label class="drop" id="mkDrop">
+      <b>Drop a video here</b>
+      <span class="btn primary">Choose video<input type="file" id="mkVidIn" accept="video/*,.mp4,.webm,.mov,.mkv,.m4v" hidden></span>
+      <span class="meta" id="mkLoadMsg">MP4 or WebM work best.</span>
+    </label>
+  </div>
+  <div id="mkWork" class="maker" hidden>
+    <div>
+      <div class="mkvid"><video id="mkVid" playsinline preload="auto"></video></div>
+      <canvas id="mkTl" width="1600" height="200"></canvas>
+      <div class="mkctl">
+        <button id="mkPlay" class="primary">▶ Play<kbd>Space</kbd></button>
+        <span class="time" id="mkTime">0:00.0</span>
+        <button id="mkBk">−1s<kbd>←</kbd></button><button id="mkFw">+1s<kbd>→</kbd></button>
+        <button id="mkSetS">Start here<kbd>I</kbd></button><button id="mkSetE">End here<kbd>O</kbd></button>
+        <button id="mkPlaySel">▶ Selection<kbd>P</kbd></button>
+        <label class="ck" style="margin-left:auto">Zoom <select id="mkZoom"><option value="0">Whole video</option><option value="60">60s</option><option value="20" selected>20s</option><option value="8">8s</option></select></label>
+      </div>
+      <div class="panel">
+        <h3 id="mkEdTitle">New line</h3>
+        <div class="mkedit">
+          <div class="field" style="margin:0"><label for="mkChar">Who says it</label><select id="mkChar" style="width:100%"></select></div>
+          <div class="field" style="margin:0"><label for="mkCap">What they say (caption)</label><input type="text" id="mkCap" maxlength="200" placeholder="e.g. Someone has to get off her butt and work around here."></div>
+          <div class="full row" style="justify-content:space-between">
+            <span class="meta" id="mkSelTxt"></span>
+            <span class="row"><button id="mkCancel" hidden>Cancel<kbd>Esc</kbd></button><button class="primary" id="mkAdd">＋ Add line<kbd>Enter</kbd></button></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <aside class="side">
+      <div class="panel">
+        <h3>Pack</h3>
+        <div class="field"><label for="mkTitle">Title</label><input type="text" id="mkTitle" maxlength="60"></div>
+        <label style="font-size:13px;color:var(--dim)">Characters</label>
+        <div id="mkChars" style="margin:8px 0"></div>
+        <div class="invite"><input type="text" id="mkNewChar" maxlength="30" placeholder="Add a character…"><button id="mkAddChar">Add</button></div>
+      </div>
+      <div class="panel"><h3 id="mkLinesHead">Lines</h3><ol class="mklines" id="mkLines"></ol></div>
+      <div class="panel">
+        <h3>Build</h3>
+        <label style="display:block;font-size:14px">Original voices left in the music during lines: <b id="mkDuckTxt">15%</b>
+          <input type="range" id="mkDuck" min="0" max="100" step="5" value="15" style="width:100%;accent-color:var(--red)"></label>
+        <p class="meta" style="margin:6px 0 12px">The music track is the video's own sound, turned down while each line is spoken so your voices replace the originals.</p>
+        <button class="primary wide" id="mkPlayNow">▶ Play this pack now</button>
+        <button class="wide" id="mkDownload" style="margin-top:8px">⬇ Download pack .zip</button>
+        <p class="meta" id="mkMsg"></p>
+      </div>
+    </aside>
+  </div>
+</section>
 </main>
+<dialog id="micDlg" class="dlg">
+  <h3>Mic settings</h3>
+  <div class="field"><label for="micSel">Microphone</label><select id="micSel" style="width:100%"></select></div>
+  <div class="field"><label for="micVol">Volume <span id="micVolTxt"></span></label><input type="range" id="micVol" min="0.2" max="3" step="0.05" style="width:100%;accent-color:var(--red)"></div>
+  <label class="ck"><input type="checkbox" id="micNs"> Noise reduction</label>
+  <label class="ck"><input type="checkbox" id="micEc"> Echo cancellation (helps if you use speakers)</label>
+  <label class="ck"><input type="checkbox" id="micAgc"> Automatic volume</label>
+  <div class="meter" style="margin:14px 0 6px"><div id="micMeter"></div></div>
+  <div class="row"><button id="micTest">● Test: record 3 seconds</button><span class="meta" id="micTestMsg"></span></div>
+  <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="primary" id="micClose">Done</button></div>
+</dialog>
 <div id="toast"></div>
 
 <script src="jszip.min.js"></script>
@@ -1012,6 +1108,7 @@ function go(name) {
   if (name === 'lobby') renderLobby();
   if (name === 'record') renderBooth();
   if (name === 'premiere') enterPremiere();
+  if (name === 'maker') renderMaker(); else $('#mkVid').pause();
   window.scrollTo(0, 0);
 }
 function renderSteps() {
@@ -1168,6 +1265,8 @@ function renderLobby() {
     ib.append(el('p', { class: 'meta', style: 'margin:0' }, 'You\'re in ', el('b', {}, nameOf('host')), '\'s game. They\'ll start when everyone\'s ready.'));
   }
 
+  if (S.isHost && S.pack?.madeZip)             // a pack made in the Pack Maker: friends need the zip too
+    ib.append(el('button', { class: 'wide', style: 'margin-top:10px', onclick: () => download(S.pack.madeZip.zip, S.pack.madeZip.name) }, '⬇ Download this pack to send your friends'));
   // players
   const pl = $('#plist'); pl.innerHTML = '';
   for (const p of S.players) {
@@ -1363,8 +1462,8 @@ function waveBars(g, d, sr, startSec, pxPerSec, mid, color, alpha) {
 function matchPct(line) {                     // same measure the judges use: length + loudness shape
   const t = line.take; if (!t || !line.refBuf) return null;
   if (t._pct == null) {
-    const sr = line.refBuf.sampleRate, rm = trimSilence(line._mono, sr) || line._mono, tm = t.buf.getChannelData(0);
-    const rd = rm.length / sr, td = t.buf.duration;
+    const sr = line.refBuf.sampleRate, rm = trimSilence(line._mono, sr) || line._mono, tm = (t.raw || t.buf).getChannelData(0);
+    const rd = rm.length / sr, td = (t.raw || t.buf).duration;
     const shape = clamp((pearson(envelope(rm), envelope(tm)) + 0.2) / 1.2, 0, 1);
     t._pct = Math.round((0.4 * Math.min(rd, td) / Math.max(rd, td) + 0.6 * shape) * 100);
   }
@@ -1380,7 +1479,7 @@ function drawWave(line, elapsed = null) {
   }
   const ref = line.refBuf, sr = ref.sampleRate, win = ref.duration;
   if (!line._mono) { line._mono = toMono(ref); line._lead = leadOf(line._mono, sr); }
-  const take = elapsed == null ? line.take?.buf : null;
+  const take = elapsed == null ? (line.take?.raw || line.take?.buf) : null;   // compare the clean voice
   const span = Math.max(win, take ? line._lead + take.duration : 0, elapsed ?? 0) + 0.2;
   const pps = W / span;
   // seconds grid + the record window (everything after it is greyed out)
@@ -1407,15 +1506,143 @@ function drawWave(line, elapsed = null) {
   $('#winLabel').textContent = `${win.toFixed(1)}s WINDOW`;
 }
 
+/* ---------------- Voice effects ----------------
+   Applied to a take after it's recorded. The clean take is kept, so you can switch effects without re-recording,
+   and the judges/match always score the clean take. */
+const FX = { none: 'Original', deep: 'Deep', cartoon: 'Cartoon', monster: 'Monster', alien: 'Alien', robot: 'Robot', radio: 'Radio',
+  megaphone: 'Megaphone', echo: 'Echo', hall: 'Hall', cave: 'Cave', underwater: 'Underwater', chorus: 'Chorus' };
+S.fx = FX[store.get('dubbooth-fx')] ? store.get('dubbooth-fx') : 'none';
+function pitchShift(d, sr, ratio) {            // granular pitch shift: changes how high/low it sounds, keeps the length
+  const grain = Math.round(sr * 0.07), hop = grain >> 1, out = new Float32Array(d.length), win = new Float32Array(grain);
+  for (let i = 0; i < grain; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (grain - 1));
+  for (let start = 0; start < d.length; start += hop)
+    for (let i = 0; i < grain && start + i < d.length; i++) {
+      const src = start + i * ratio, j = src | 0, f = src - j;
+      if (j + 1 < d.length) out[start + i] += (d[j] * (1 - f) + d[j + 1] * f) * win[i];
+    }
+  return out;
+}
+function ringMod(d, sr, hz, mix = 1) { const o = new Float32Array(d.length); for (let i = 0; i < d.length; i++) o[i] = d[i] * (1 - mix + mix * Math.sin(2 * Math.PI * hz * i / sr)); return o; }
+async function offline(d, sr, tail, build) {   // run a little Web Audio chain over the take, faster than real time
+  const oc = new OfflineAudioContext(1, d.length + Math.round(tail * sr), sr);
+  const b = oc.createBuffer(1, d.length, sr); b.copyToChannel(d, 0);
+  const s = oc.createBufferSource(); s.buffer = b;
+  build(oc, s).connect(oc.destination); s.start();
+  return (await oc.startRendering()).getChannelData(0);
+}
+const filt = (oc, type, f, q = 0.7) => { const n = oc.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = q; return n; };
+const crunch = (oc, k) => { const n = oc.createWaveShaper(), c = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); } n.curve = c; return n; };
+const chain = (...nodes) => { for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]); return nodes.at(-1); };
+function room(oc, secs, decay) {               // synthetic reverb: a burst of fading noise
+  const len = Math.round(secs * oc.sampleRate), ir = oc.createBuffer(2, len, oc.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); }
+  const n = oc.createConvolver(); n.buffer = ir; return n;
+}
+function wetDry(oc, src, wetIn, wet, dry = 1, wetOut = wetIn) {   // mix the clean voice with an effected copy
+  const out = oc.createGain(), g1 = oc.createGain(), g2 = oc.createGain(); g1.gain.value = dry; g2.gain.value = wet;
+  src.connect(g1).connect(out); src.connect(wetIn); wetOut.connect(g2).connect(out); return out;
+}
+function echoNode(oc, time, fb) { const d = oc.createDelay(2), g = oc.createGain(); d.delayTime.value = time; g.gain.value = fb; d.connect(g).connect(d); return d; }
+function wobble(oc, src, base, depth, rate, gainTo) {   // short delay whose time is swayed by a slow wave (chorus / underwater warble)
+  const d = oc.createDelay(0.1), lfo = oc.createOscillator(), amt = oc.createGain();
+  d.delayTime.value = base; lfo.frequency.value = rate; amt.gain.value = depth; lfo.connect(amt).connect(d.delayTime); lfo.start();
+  src.connect(d); d.connect(gainTo); return d;
+}
+async function applyFx(raw, fx) {
+  if (!fx || fx === 'none') return raw;
+  const sr = raw.sampleRate; let d = raw.getChannelData(0);
+  switch (fx) {
+    case 'deep': d = pitchShift(d, sr, 0.72); break;
+    case 'cartoon': d = pitchShift(d, sr, 1.55); break;
+    case 'monster': d = await offline(pitchShift(d, sr, 0.55), sr, 0, (oc, s) => chain(s, crunch(oc, 6), filt(oc, 'lowpass', 2600))); break;
+    case 'alien': d = await offline(ringMod(pitchShift(d, sr, 1.25), sr, 38, 0.6), sr, 0.6, (oc, s) => wetDry(oc, s, echoNode(oc, 0.09, 0.45), 0.4)); break;
+    case 'robot': d = await offline(ringMod(d, sr, 55), sr, 0, (oc, s) => chain(s, filt(oc, 'highpass', 180), crunch(oc, 3))); break;
+    case 'radio': d = await offline(d, sr, 0, (oc, s) => chain(s, filt(oc, 'highpass', 500), filt(oc, 'lowpass', 3000), crunch(oc, 4))); break;
+    case 'megaphone': d = await offline(d, sr, 0, (oc, s) => chain(s, filt(oc, 'highpass', 600), filt(oc, 'peaking', 1800, 1.2), crunch(oc, 9), filt(oc, 'lowpass', 4000))); break;
+    case 'echo': d = await offline(d, sr, 1.4, (oc, s) => wetDry(oc, s, echoNode(oc, 0.28, 0.42), 0.55)); break;
+    case 'hall': d = await offline(d, sr, 1.8, (oc, s) => wetDry(oc, s, room(oc, 2.2, 3), 0.45, 0.85)); break;
+    case 'cave': d = await offline(d, sr, 2.2, (oc, s) => { const e = echoNode(oc, 0.17, 0.35), r = room(oc, 2.6, 2); e.connect(r); return wetDry(oc, s, e, 0.6, 0.8, r); }); break;
+    case 'underwater': d = await offline(d, sr, 0.2, (oc, s) => { const out = oc.createGain(), lp = filt(oc, 'lowpass', 420); s.connect(lp); wobble(oc, lp, 0.012, 0.006, 3.5, out); return out; }); break;
+    case 'chorus': d = await offline(d, sr, 0.1, (oc, s) => { const out = oc.createGain(); s.connect(out); wobble(oc, s, 0.022, 0.004, 0.9, out); wobble(oc, s, 0.031, 0.005, 1.3, out); return out; }); break;
+  }
+  let pk = 0; for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i]));
+  if (pk > 0) { const k = 0.9 / pk; d = d.map(x => x * k); }   // even out the loudness
+  return mkBuf(d, sr);
+}
+$('#fxSel').replaceChildren(...Object.entries(FX).map(([k, n]) => el('option', { value: k, selected: k === S.fx }, n)));
+$('#fxSel').onchange = async e => {
+  S.fx = e.target.value; store.set('dubbooth-fx', S.fx);
+  const line = curLine();                       // re-voice the take on screen right away
+  if (line?.take?.raw && line.take.pid === S.me.id && recState === 'idle') {
+    line.take.buf = await applyFx(line.take.raw, S.fx); line.take.fx = S.fx;
+    shareTake(line); stopPreview(); stopScene(); playBuf(line.take.buf, 1.2);
+  }
+};
+
 /* ---------------- Recording ---------------- */
 let micStream = null, analyser = null, mr = null, recTimer = null, recTick = null, recState = 'idle', cancelCount = false, recLive = [];
+// Mic settings are remembered in this browser. Recording goes mic -> volume -> recorder, so the volume slider applies.
+const MIC = Object.assign({ deviceId: '', gain: 1, ns: true, ec: true, agc: true }, (() => { try { return JSON.parse(store.get('dubbooth-mic') || '{}'); } catch { return {}; } })());
+const saveMic = () => store.set('dubbooth-mic', JSON.stringify(MIC));
+let micKey = '', micSrc = null, micGain = null, recDest = null;
 async function getMic() {
-  if (micStream && micStream.active) return;
+  const key = JSON.stringify([MIC.deviceId, MIC.ns, MIC.ec, MIC.agc]);
+  if (micStream && micStream.active && key === micKey) { micGain.gain.value = MIC.gain; return; }
   if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'Insecure' });
-  micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-  analyser = ac().createAnalyser(); analyser.fftSize = 1024;
-  AC.createMediaStreamSource(micStream).connect(analyser);   // meter only
+  micStream?.getTracks().forEach(t => t.stop());
+  const audio = { echoCancellation: MIC.ec, noiseSuppression: MIC.ns, autoGainControl: MIC.agc };
+  if (MIC.deviceId) audio.deviceId = { exact: MIC.deviceId };
+  try { micStream = await navigator.mediaDevices.getUserMedia({ audio }); }
+  catch (e) {                                   // the saved mic was unplugged: fall back to the default one
+    if (!MIC.deviceId || !/Overconstrained|NotFound/.test(e.name)) throw e;
+    MIC.deviceId = ''; saveMic(); delete audio.deviceId;
+    micStream = await navigator.mediaDevices.getUserMedia({ audio });
+  }
+  micKey = key; ac();
+  if (!micGain) {
+    micGain = AC.createGain(); analyser = AC.createAnalyser(); analyser.fftSize = 1024; recDest = AC.createMediaStreamDestination();
+    micGain.connect(analyser); micGain.connect(recDest);   // meter + recorder, never the speakers
+  }
+  try { micSrc?.disconnect(); } catch {}
+  micSrc = AC.createMediaStreamSource(micStream); micSrc.connect(micGain);
+  micGain.gain.value = MIC.gain;
 }
+async function openMicSettings() {
+  try { await getMic(); } catch (e) { toast(micError(e), 7000); return; }
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+  const cur = MIC.deviceId || micStream.getAudioTracks()[0]?.getSettings?.().deviceId;
+  $('#micSel').replaceChildren(...devs.map((d, i) => el('option', { value: d.deviceId, selected: d.deviceId === cur }, d.label || `Microphone ${i + 1}`)));
+  $('#micVol').value = MIC.gain; $('#micVolTxt').textContent = Math.round(MIC.gain * 100) + '%';
+  $('#micNs').checked = MIC.ns; $('#micEc').checked = MIC.ec; $('#micAgc').checked = MIC.agc;
+  $('#micTestMsg').textContent = '';
+  $('#micDlg').showModal();
+  const buf = new Float32Array(analyser.fftSize);
+  const tick = () => {
+    if (!$('#micDlg').open) return;
+    analyser.getFloatTimeDomainData(buf);
+    let pk = 0; for (const x of buf) pk = Math.max(pk, Math.abs(x));
+    $('#micMeter').style.width = Math.min(100, Math.sqrt(pk) * 130) + '%';
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+$('#micBtn').onclick = openMicSettings;
+$('#micClose').onclick = () => $('#micDlg').close();
+$('#micSel').onchange = e => { MIC.deviceId = e.target.value; saveMic(); getMic().catch(err => toast(micError(err), 7000)); };
+$('#micVol').oninput = e => { MIC.gain = +e.target.value; $('#micVolTxt').textContent = Math.round(MIC.gain * 100) + '%'; if (micGain) micGain.gain.value = MIC.gain; saveMic(); };
+for (const [id, k] of [['#micNs', 'ns'], ['#micEc', 'ec'], ['#micAgc', 'agc']])
+  $(id).onchange = e => { MIC[k] = e.target.checked; saveMic(); getMic().catch(err => toast(micError(err), 7000)); };
+$('#micTest').onclick = async () => {
+  if (recState !== 'idle' || !recDest) return;
+  const msg = $('#micTestMsg'), chunks = [], r = new MediaRecorder(recDest.stream);
+  r.ondataavailable = e => e.data.size && chunks.push(e.data);
+  r.onstop = async () => {
+    try { const b = await decode(new Blob(chunks, { type: r.mimeType })); stopPreview(); playBuf(b); msg.textContent = 'Playing it back…'; }
+    catch { msg.textContent = 'Couldn\'t play the test back.'; }
+  };
+  r.start(); msg.textContent = 'Recording… say something!';
+  await sleep(3000); r.stop();
+};
 function micError(e) {
   if (e.name === 'NotAllowedError') return 'Mic access was blocked. Click the lock/mic icon in the address bar, allow the microphone, and try again.';
   if (e.name === 'NotFoundError') return 'No microphone found. Plug one in and try again.';
@@ -1454,18 +1681,30 @@ async function toggleRec() {
   try { await getMic(); } catch (e) { toast(micError(e), 7000); return; }
   stopPreview(); stopScene();
   const ref = await refBuf(line).catch(() => null);
+  const win = ref ? ref.duration : 6;              // this line's window = the original clip's length
+  const ts = line.ts[0] ?? 0, withVid = $('#optRecVid').checked, withSnd = $('#optRecSnd').checked, sc = $('#stageCv');
+  // line the scene up on this line while the countdown runs
+  const prep = withVid ? withTimeout(loadVideo(S.pack).catch(() => null).then(() => V.ok && vSeekWait(ts)), 8000) : null;
+  cancelCount = false;
   if ($('#optCount').checked) {
-    recState = 'count'; cancelCount = false; setRecUI();
+    recState = 'count'; setRecUI();
     const cd = $('#countdown'); cd.hidden = false;
     for (let i = 3; i > 0 && !cancelCount; i--) { cd.textContent = i; beep(i === 1 ? 880 : 620); await sleep(500); }
     cd.hidden = true;
     if (cancelCount) { recState = 'idle'; setRecUI(); return; }
   }
+  if (withVid) {                                   // the line's clip plays on the stage while you record
+    recState = 'count'; setRecUI();
+    fitCanvas(sc); sc.hidden = false; drawLoading(sc, 'Getting the scene ready…');
+    await Promise.all([prep, withSnd ? backBuf(S.pack).catch(() => null) : null]);
+    if (cancelCount || curLine() !== line) { stopScene(); recState = 'idle'; setRecUI(); return; }
+    await startShow(ts, { canvas: sc, until: ts + win + 0.35, captions: false, only: line, useRef: true, silent: !withSnd,
+      onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });
+  }
   const chunks = [];
-  mr = new MediaRecorder(micStream);
+  mr = new MediaRecorder(recDest.stream);
   mr.ondataavailable = e => e.data.size && chunks.push(e.data);
   mr.onstop = () => finishTake(line, new Blob(chunks, { type: mr.mimeType }));
-  const win = ref ? ref.duration : 6;              // this line's window = the original clip's length
   mr.start();
   recState = 'rec'; setRecUI(); meterLoop();
   $('#winState').textContent = '● REC: stops when the clip ends';
@@ -1484,6 +1723,7 @@ async function toggleRec() {
 function stopRec() {
   if (recState !== 'rec') return;
   clearTimeout(recTimer); clearInterval(recTick); recTick = null; recState = 'busy'; setRecUI();
+  stopScene();
   try { mr.stop(); } catch { recState = 'idle'; setRecUI(); }
 }
 async function finishTake(line, blob) {
@@ -1492,8 +1732,8 @@ async function finishTake(line, blob) {
     const trimmed = trimSilence(toMono(raw), raw.sampleRate);
     if (!trimmed) toast('I heard nothing. Is the right mic selected?');
     else {
-      const buf = mkBuf(trimmed, raw.sampleRate);
-      line.take = { buf, pid: S.me.id, name: S.me.name, judges: await judge(line, buf) };
+      const clean = mkBuf(trimmed, raw.sampleRate);
+      line.take = { buf: await applyFx(clean, S.fx), raw: clean, fx: S.fx, pid: S.me.id, name: S.me.name, judges: await judge(line, clean) };
       shareTake(line);
     }
   } catch (e) { console.error(e); toast('Could not process that recording: ' + e.message); }
@@ -1510,7 +1750,7 @@ $('#bScene').onclick = playInScene;
 $('#bPrev').onclick = () => step(-1);
 $('#bNext').onclick = () => step(1);
 document.addEventListener('keydown', e => {
-  if (e.target.matches('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.matches('input,select,textarea') || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
   if (S.screen === 'record') {
     const k = e.key.toLowerCase();
     if (k === ' ') { e.preventDefault(); toggleRec(); }
@@ -1520,6 +1760,7 @@ document.addEventListener('keydown', e => {
     else if (k === 'arrowright' || k === 'n') step(1);
     else if (k === 'arrowleft' || k === 'b') step(-1);
   } else if (S.screen === 'premiere' && e.key === ' ' && S.isHost) { e.preventDefault(); togglePlay(); }
+  else if (S.screen === 'maker' && MK.file) mkKey(e);
 });
 
 /* ================================================================
@@ -1718,10 +1959,10 @@ async function startShow(offset = 0, opts = {}) {
     if (at >= 0) s.start(t0 + at); else s.start(t0, -at);
     P.srcs.push(s);
   };
-  if (p.backBuf && offset < p.backBuf.duration) add(p.backBuf, bg, -offset);
+  if (!opts.silent && p.backBuf && offset < p.backBuf.duration) add(p.backBuf, bg, -offset);
   const fill = opts.fill ?? $('#optFill').checked;
-  for (const l of (opts.only ? [opts.only] : p.lines)) {   // In scene: only this line's voice
-    const buf = l.take?.buf || (fill ? l.refBuf : null);
+  for (const l of (opts.silent ? [] : opts.only ? [opts.only] : p.lines)) {   // In scene: only this line's voice
+    const buf = opts.useRef ? l.refBuf : (l.take?.buf || (fill ? l.refBuf : null));   // while recording: the original as a guide
     if (!buf) continue;
     for (const ts of l.ts) if (ts - offset + buf.duration > 0) add(buf, vg, ts - offset);
   }
@@ -1910,6 +2151,313 @@ $('#impTakes').onchange = async e => {
 };
 
 window.addEventListener('beforeunload', e => { if (S.inGame && (S.isHost || S.pack?.lines.some(l => l.take))) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ================================================================
+   PACK MAKER: turn any video into a pack.
+   Lines are marked on a timeline; building makes a still + the original voice for each line,
+   and a music track (the video's own sound, turned down while lines are spoken).
+   ================================================================ */
+const MK = { file: null, url: '', audio: null, peaks: null, pkScale: 1, pps: 100, chars: [], lines: [], sel: null, editing: null,
+  title: '', duck: 0.15, view: 20, drag: null, frozen: null, playUntil: null, raf: 0, key: '', lastChar: '' };
+const mkV = () => $('#mkVid');
+const fmtMs = t => `${Math.floor((t || 0) / 60)}:${((t || 0) % 60).toFixed(1).padStart(4, '0')}`;
+const mkColor = name => COLORS[Math.max(0, MK.chars.indexOf(name)) % COLORS.length];
+function mkSave() {
+  store.set(MK.key, JSON.stringify({ chars: MK.chars, title: MK.title, duck: MK.duck,
+    lines: MK.lines.map(({ id, char, start, end, caption }) => ({ id, char, start, end, caption })) }));
+}
+function peaksOf(buf, pps) {                     // loudest point per 1/100 s, for drawing the timeline
+  const n = Math.ceil(buf.duration * pps), out = new Float32Array(n), step = buf.sampleRate / pps;
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < n; i++) { let m = 0; for (let j = Math.floor(i * step), e = Math.min(d.length, Math.floor((i + 1) * step)); j < e; j += 4) m = Math.max(m, Math.abs(d[j])); out[i] = Math.max(out[i], m); }
+  }
+  return out;
+}
+async function mkLoad(file) {
+  const v = mkV(), msg = $('#mkLoadMsg');
+  msg.textContent = 'Opening the video…';
+  if (MK.url) URL.revokeObjectURL(MK.url);
+  const url = URL.createObjectURL(file);
+  v.src = url;
+  const ok = await new Promise(res => { v.onloadedmetadata = () => res(true); v.onerror = () => res(false); setTimeout(() => res(v.readyState >= 1), 15000); });
+  if (!ok) { msg.textContent = 'This browser can\'t play that video. Try an MP4 or WebM file.'; URL.revokeObjectURL(url); return; }
+  msg.textContent = 'Reading the sound…';
+  let audio = null;
+  try { audio = await decode(file); } catch { toast('Couldn\'t read this video\'s sound, so the pack won\'t have original voices or music.', 8000); }
+  Object.assign(MK, { file, url, audio, peaks: audio ? peaksOf(audio, MK.pps) : null, key: 'dubbooth-maker:' + file.name + ':' + file.size, sel: null, editing: null, playUntil: null });
+  if (MK.peaks) { let m = 0; for (const x of MK.peaks) m = Math.max(m, x); MK.pkScale = m ? 1 / m : 1; }
+  let saved = null; try { saved = JSON.parse(store.get(MK.key) || 'null'); } catch {}
+  Object.assign(MK, { chars: saved?.chars || [], lines: saved?.lines || [], title: saved?.title || file.name.replace(/\.[^.]+$/, '').slice(0, 60), duck: saved?.duck ?? 0.15 });
+  if (saved?.lines?.length) toast(`Picked up where you left off: ${saved.lines.length} line${saved.lines.length > 1 ? 's' : ''}.`);
+  msg.textContent = 'MP4 or WebM work best.';
+  renderMaker();
+}
+function renderMaker() {
+  $('#mkStart').hidden = !!MK.file; $('#mkWork').hidden = !MK.file;
+  if (!MK.file) return;
+  $('#mkTitle').value = MK.title;
+  $('#mkDuck').value = Math.round(MK.duck * 100); $('#mkDuckTxt').textContent = Math.round(MK.duck * 100) + '%';
+  mkRenderChars(); mkRenderLines(); mkRenderEditor(); mkLoop();
+}
+function mkView() {                               // which part of the video the timeline shows
+  if (MK.frozen) return MK.frozen;
+  const v = mkV(), dur = v.duration || 0, span = MK.view && MK.view < dur ? MK.view : dur;
+  const t0 = span < dur ? clamp(v.currentTime - span / 2, 0, dur - span) : 0;
+  return { t0, span: span || 1, dur };
+}
+function mkDraw() {
+  const cv = $('#mkTl'), g = cv.getContext('2d'), W = cv.width, H = cv.height, top = 30, { t0, span } = mkView(), x = t => (t - t0) / span * W;
+  g.fillStyle = '#0a080d'; g.fillRect(0, 0, W, H);
+  const step = span > 240 ? 30 : span > 90 ? 10 : span > 30 ? 5 : 1;
+  g.font = '20px "JetBrains Mono", monospace'; g.textBaseline = 'top';
+  for (let s = Math.ceil(t0 / step) * step; s <= t0 + span; s += step) { g.fillStyle = '#211c29'; g.fillRect(Math.round(x(s)), 0, 1, H); g.fillStyle = '#5a4f66'; g.fillText(fmt(s), x(s) + 4, 4); }
+  if (MK.peaks) {                                  // the sound, so you can see where people talk
+    const mid = (H + top) / 2, amp = (H - top - 6) / 2;
+    g.fillStyle = '#ff4fd8'; g.globalAlpha = 0.5;
+    for (let px = 0; px < W; px += 2) {
+      const a = Math.floor((t0 + px / W * span) * MK.pps), b = Math.max(a + 1, Math.floor((t0 + (px + 2) / W * span) * MK.pps));
+      let m = 0; for (let i = a; i < b && i < MK.peaks.length; i++) m = Math.max(m, MK.peaks[i]);
+      const h = Math.max(1, m * MK.pkScale * amp); g.fillRect(px, mid - h, 2, 2 * h);
+    }
+    g.globalAlpha = 1;
+  }
+  for (const l of MK.lines) {                      // marked lines, coloured by character
+    const c = mkColor(l.char), a = x(l.start), w = Math.max(3, x(l.end) - a);
+    g.fillStyle = c; g.globalAlpha = MK.editing === l ? 0.5 : 0.22; g.fillRect(a, top, w, H - top); g.globalAlpha = 1;
+    g.fillRect(a, top, w, 5); g.fillStyle = '#fff'; g.fillText(l.char, a + 5, top + 9);
+  }
+  if (MK.sel) { const a = x(MK.sel.start), b = x(MK.sel.end); g.fillStyle = 'rgba(255,181,71,.22)'; g.fillRect(a, 0, b - a, H); g.fillStyle = '#ffb547'; g.fillRect(a - 1, 0, 3, H); g.fillRect(b - 1, 0, 3, H); }
+  g.fillStyle = '#ff3d57'; g.fillRect(x(mkV().currentTime) - 1, 0, 3, H);
+}
+function mkLoop() {
+  cancelAnimationFrame(MK.raf);
+  const tick = () => {
+    if (S.screen !== 'maker' || !MK.file) return;
+    const v = mkV();
+    if (MK.playUntil != null && v.currentTime >= MK.playUntil) { v.pause(); MK.playUntil = null; }
+    $('#mkTime').textContent = `${fmtMs(v.currentTime)} / ${fmtMs(v.duration)}`;
+    $('#mkPlay').firstChild.textContent = v.paused ? '▶ Play' : '❚❚ Pause';
+    mkDraw();
+    MK.raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+function mkRenderChars() {
+  $('#mkChars').replaceChildren(...MK.chars.map(c => el('span', { class: 'chipx' }, el('i', { class: 'pdot', style: `background:${mkColor(c)}` }), c,
+    el('button', { title: 'Remove', onclick: () => mkDelChar(c) }, '✕'))), MK.chars.length ? '' : el('span', { class: 'meta' }, 'No characters yet. Add the people who talk in the clip.'));
+  const sel = $('#mkChar'), cur = MK.lastChar && MK.chars.includes(MK.lastChar) ? MK.lastChar : MK.chars[0];
+  sel.replaceChildren(...MK.chars.map(c => el('option', { value: c, selected: c === cur }, c)), el('option', { value: '__new', selected: !cur }, '＋ New character…'));
+}
+function mkAddChar(name) {
+  name = String(name || '').trim().replace(/["\\]/g, '').slice(0, 30);
+  if (!name) return null;
+  if (!MK.chars.includes(name)) MK.chars.push(name);
+  MK.lastChar = name; mkSave(); mkRenderChars();
+  return name;
+}
+function mkDelChar(c) {
+  const n = MK.lines.filter(l => l.char === c).length;
+  if (n) return toast(`${n} line${n > 1 ? 's use' : ' uses'} ${c}. Delete or change ${n > 1 ? 'those' : 'it'} first.`);
+  MK.chars = MK.chars.filter(x => x !== c); mkSave(); mkRenderChars();
+}
+function mkRenderLines() {
+  const sorted = [...MK.lines].sort((a, b) => a.start - b.start);
+  $('#mkLinesHead').textContent = `Lines · ${sorted.length}`;
+  $('#mkLines').replaceChildren(...sorted.map(l => el('li', { class: MK.editing === l ? 'sel' : '', onclick: () => mkEdit(l) },
+    el('i', { class: 'pdot', style: `background:${mkColor(l.char)}` }),
+    el('span', { class: 'time' }, fmtMs(l.start)),
+    el('span', { class: 'tx' }, el('b', {}, l.char + ': '), l.caption || '…'),
+    el('button', { title: 'Play this line', onclick: e => { e.stopPropagation(); mkPlayRange(l.start, l.end); } }, '▶'),
+    el('button', { title: 'Delete', onclick: e => { e.stopPropagation(); mkDelLine(l); } }, '✕'))),
+    sorted.length ? '' : el('li', { class: 'meta', style: 'cursor:default' }, 'No lines yet. Drag over the timeline to mark the first one.'));
+}
+function mkRenderEditor() {
+  const s = MK.sel;
+  $('#mkEdTitle').textContent = MK.editing ? 'Edit line' : 'New line';
+  $('#mkAdd').firstChild.textContent = MK.editing ? '✓ Save line' : '＋ Add line';
+  $('#mkCancel').hidden = !MK.editing;
+  $('#mkSelTxt').textContent = s ? `${fmtMs(s.start)} → ${fmtMs(s.end)}  (${(s.end - s.start).toFixed(1)}s)` : 'Drag over the timeline (or use Start/End) to mark when the line is said.';
+}
+function mkEdit(l) {
+  MK.editing = l; MK.sel = { start: l.start, end: l.end }; MK.lastChar = l.char;
+  $('#mkCap').value = l.caption; mkV().currentTime = l.start;
+  mkRenderChars(); mkRenderLines(); mkRenderEditor();
+}
+function mkCancel() { MK.editing = null; MK.sel = null; $('#mkCap').value = ''; mkRenderLines(); mkRenderEditor(); }
+function mkAddLine() {
+  const s = MK.sel; let ch = $('#mkChar').value;
+  if (!s || s.end - s.start < 0.2) return toast('First mark when the line is said: drag over the timeline.');
+  if (!ch || ch === '__new') { ch = mkAddChar(prompt('Who says this line?')); if (!ch) return; }
+  const caption = $('#mkCap').value.trim().replace(/[\r\n]+/g, ' ');
+  if (MK.editing) Object.assign(MK.editing, { char: ch, start: s.start, end: s.end, caption });
+  else MK.lines.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), char: ch, start: s.start, end: s.end, caption });
+  MK.lastChar = ch; MK.editing = null; MK.sel = null; $('#mkCap').value = '';
+  mkSave(); mkRenderChars(); mkRenderLines(); mkRenderEditor();
+}
+function mkDelLine(l) { MK.lines = MK.lines.filter(x => x !== l); if (MK.editing === l) mkCancel(); mkSave(); mkRenderLines(); }
+function mkPlayRange(a, b) { const v = mkV(); v.currentTime = a; MK.playUntil = b; v.play().catch(() => {}); }
+function mkMark(which) {
+  const v = mkV(), t = v.currentTime, dur = v.duration || 0, s = MK.sel;
+  if (which === 's') MK.sel = { start: t, end: s && s.end > t + 0.2 ? s.end : Math.min(dur, t + 2) };
+  else MK.sel = { start: s && s.start < t - 0.2 ? s.start : Math.max(0, t - 2), end: t };
+  mkRenderEditor();
+}
+function mkKey(e) {
+  const v = mkV(), k = e.key;
+  if (k === ' ') { e.preventDefault(); if (v.paused) { MK.playUntil = null; v.play().catch(() => {}); } else v.pause(); }
+  else if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); v.currentTime = clamp(v.currentTime + (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 0.1 : 1), 0, v.duration || 0); }
+  else if (k === 'i' || k === 'I') mkMark('s');
+  else if (k === 'o' || k === 'O') mkMark('e');
+  else if ((k === 'p' || k === 'P') && MK.sel) mkPlayRange(MK.sel.start, MK.sel.end);
+  else if (k === 'Enter') mkAddLine();
+  else if (k === 'Escape') mkCancel();
+}
+// timeline: click = jump there (or edit the line you clicked), drag = mark a line
+{
+  const tl = $('#mkTl');
+  const tAt = e => { const r = tl.getBoundingClientRect(), { t0, span, dur } = mkView(); return clamp(t0 + (e.clientX - r.left) / r.width * span, 0, dur); };
+  tl.onpointerdown = e => { if (!MK.file) return; tl.setPointerCapture(e.pointerId); MK.frozen = mkView(); MK.drag = { a: tAt(e), x: e.clientX, moved: false }; };
+  tl.onpointermove = e => {
+    if (!MK.drag) return;
+    if (Math.abs(e.clientX - MK.drag.x) > 4) MK.drag.moved = true;
+    if (MK.drag.moved) { const b = tAt(e); MK.sel = { start: Math.min(MK.drag.a, b), end: Math.max(MK.drag.a, b) }; mkRenderEditor(); }
+  };
+  tl.onpointerup = e => {
+    if (!MK.drag) return;
+    const d = MK.drag; MK.drag = null;
+    if (!d.moved) {
+      const t = tAt(e), r = tl.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * tl.height;
+      const hit = y > 30 && MK.lines.find(l => t >= l.start && t <= l.end);
+      if (hit) mkEdit(hit); else mkV().currentTime = t;
+    } else $('#mkCap').focus();
+    MK.frozen = null;
+  };
+}
+$('#mkOpen').onclick = () => go('maker');
+$('#mkBack').onclick = () => go('home');
+$('#mkVidIn').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) mkLoad(f); };
+{ const d = $('#mkDrop');
+  ['dragenter', 'dragover'].forEach(t => d.addEventListener(t, e => { e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => d.addEventListener(t, e => { e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e => { const f = [...e.dataTransfer.files].find(f => /^video\//.test(f.type) || /\.(mp4|webm|mov|mkv|m4v)$/i.test(f.name)); if (f) mkLoad(f); else toast('Drop a video file (MP4 or WebM).'); });
+}
+$('#mkPlay').onclick = () => { const v = mkV(); if (v.paused) { MK.playUntil = null; v.play().catch(() => {}); } else v.pause(); };
+$('#mkBk').onclick = () => { const v = mkV(); v.currentTime = Math.max(0, v.currentTime - 1); };
+$('#mkFw').onclick = () => { const v = mkV(); v.currentTime = Math.min(v.duration || 0, v.currentTime + 1); };
+$('#mkSetS').onclick = () => mkMark('s');
+$('#mkSetE').onclick = () => mkMark('e');
+$('#mkPlaySel').onclick = () => MK.sel && mkPlayRange(MK.sel.start, MK.sel.end);
+$('#mkZoom').onchange = e => { MK.view = +e.target.value; };
+$('#mkAdd').onclick = mkAddLine;
+$('#mkCancel').onclick = mkCancel;
+$('#mkCap').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); mkAddLine(); } else if (e.key === 'Escape') mkCancel(); };
+$('#mkChar').onchange = e => { if (e.target.value === '__new') { const n = mkAddChar(prompt('Character name?')); if (!n) mkRenderChars(); } else MK.lastChar = e.target.value; };
+$('#mkAddChar').onclick = () => { if (mkAddChar($('#mkNewChar').value)) $('#mkNewChar').value = ''; };
+$('#mkNewChar').onkeydown = e => { if (e.key === 'Enter') $('#mkAddChar').click(); };
+$('#mkTitle').oninput = e => { MK.title = e.target.value; mkSave(); };
+$('#mkDuck').oninput = e => { MK.duck = e.target.value / 100; $('#mkDuckTxt').textContent = e.target.value + '%'; mkSave(); };
+
+/* ---- building the pack ---- */
+function wavEncodeAll(buf) {                     // 16-bit WAV, all channels
+  const ch = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate, ab = new ArrayBuffer(44 + n * ch * 2), v = new DataView(ab);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true); v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true);
+  v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  const data = [...Array(ch)].map((_, c) => buf.getChannelData(c));
+  for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) v.setInt16(o, clamp(data[c][i], -1, 1) * 0x7fff, true);
+  return new Blob([ab], { type: 'audio/wav' });
+}
+async function mkBacking(a, lines, duck) {       // the video's sound with the voices turned down while lines are spoken
+  const sr = 32000, f = 0.06, oc = new OfflineAudioContext(Math.min(2, a.numberOfChannels), Math.ceil(a.duration * sr), sr);
+  const s = oc.createBufferSource(), g = oc.createGain(); s.buffer = a; s.connect(g).connect(oc.destination);
+  const ranges = [];                               // merge overlapping lines first
+  for (const l of [...lines].sort((x, y) => x.start - y.start)) {
+    const last = ranges.at(-1);
+    if (last && l.start - f * 2 <= last.end) last.end = Math.max(last.end, l.end); else ranges.push({ start: l.start, end: l.end });
+  }
+  g.gain.setValueAtTime(1, 0);
+  for (const r of ranges) {
+    g.gain.setValueAtTime(1, Math.max(0, r.start - f)); g.gain.linearRampToValueAtTime(duck, r.start);
+    g.gain.setValueAtTime(duck, r.end); g.gain.linearRampToValueAtTime(1, r.end + f);
+  }
+  s.start();
+  return wavEncodeAll(await oc.startRendering());
+}
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+async function crc32(blob) {
+  let c = 0xffffffff; const r = blob.stream().getReader();
+  for (;;) { const { done, value } = await r.read(); if (done) break; for (let i = 0; i < value.length; i++) c = CRC_T[(c ^ value[i]) & 255] ^ (c >>> 8); }
+  return (c ^ 0xffffffff) >>> 0;
+}
+async function makeZip(entries) {                // [[name, blob]] -> zip (stored: video and sound don't shrink anyway, and the video is never copied)
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  for (const [name, blob] of entries) {
+    const nb = enc.encode(name), crc = await crc32(blob), size = blob.size, h = new DataView(new ArrayBuffer(30)), c = new DataView(new ArrayBuffer(46));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x800, true); h.setUint16(12, 0x21, true);
+    h.setUint32(14, crc, true); h.setUint32(18, size, true); h.setUint32(22, size, true); h.setUint16(26, nb.length, true);
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x800, true); c.setUint16(14, 0x21, true);
+    c.setUint32(16, crc, true); c.setUint32(20, size, true); c.setUint32(24, size, true); c.setUint16(28, nb.length, true); c.setUint32(42, off, true);
+    parts.push(h.buffer, nb, blob); central.push(c.buffer, nb);
+    off += 30 + nb.length + size;
+  }
+  const cdSize = central.reduce((n, p) => n + p.byteLength, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, entries.length, true); e.setUint16(10, entries.length, true); e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, e.buffer], { type: 'application/zip' });
+}
+let mkBusy = false;
+async function mkBuild() {
+  if (mkBusy) return null;
+  if (!MK.lines.length) { toast('Add at least one line first.'); return null; }
+  mkBusy = true; $('#mkPlayNow').disabled = $('#mkDownload').disabled = true;
+  const msg = $('#mkMsg');
+  try {
+    const title = ($('#mkTitle').value.trim() || 'My pack').replace(/["\\]/g, '').slice(0, 60);
+    const dir = title.replace(/[\/:*?<>|]/g, '').trim() || 'My pack';
+    const lines = [...MK.lines].sort((a, b) => a.start - b.start), files = [];
+    const ids = lines.map((l, i) => `${String(i + 1).padStart(3, '0')}_${l.char.replace(/[^\w\- ]/g, '').trim().replace(/\s+/g, '_') || 'line'}`);
+    const v = mkV(); v.pause();                   // a still picture from the moment each line starts
+    const cv = document.createElement('canvas'), k = Math.min(1, 640 / (v.videoWidth || 640));
+    cv.width = Math.round((v.videoWidth || 640) * k); cv.height = Math.round((v.videoHeight || 360) * k);
+    const g = cv.getContext('2d');
+    for (let i = 0; i < lines.length; i++) {
+      msg.textContent = `Taking pictures… ${i + 1}/${lines.length}`;
+      await withTimeout(new Promise(res => { v.addEventListener('seeked', res, { once: true }); v.currentTime = Math.min(lines[i].start + 0.15, lines[i].end); }), 4000);
+      g.drawImage(v, 0, 0, cv.width, cv.height);
+      files.push([`${ids[i]}.jpg`, await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.82))]);
+    }
+    if (MK.audio) {                                // each line's original voice + the music track
+      msg.textContent = 'Cutting the sound…';
+      const a = MK.audio, sr = a.sampleRate;
+      lines.forEach((l, i) => {
+        const s0 = Math.floor(l.start * sr), s1 = Math.min(a.length, Math.ceil(l.end * sr)), mono = new Float32Array(Math.max(1, s1 - s0));
+        for (let c = 0; c < a.numberOfChannels; c++) { const d = a.getChannelData(c); for (let j = 0; j < mono.length; j++) mono[j] += (d[s0 + j] || 0) / a.numberOfChannels; }
+        files.push([`${ids[i]}.wav`, wavEncode(mkBuf(mono, sr))]);
+      });
+      msg.textContent = 'Making the music track…';
+      files.push(['_backing_track.wav', await mkBacking(a, lines, MK.duck)]);
+    }
+    lines.forEach((l, i) => files.push([`${ids[i]}.ini`, new Blob([`[data]\n\ncaption=${JSON.stringify(l.caption || '…')}\nimage="${ids[i]}.jpg"\ndub_timestamps=[${l.start.toFixed(3)}]\ndub_characters=[${JSON.stringify(l.char)}]\n`])]));
+    files.push(['_pack_info.ini', new Blob([`[data]\n\ntitle=${JSON.stringify(title)}\nicon="${ids[0]}.jpg"\nauthors=[${JSON.stringify(myName() || 'Pack Maker')}]\n`])]);
+    const ext = (MK.file.name.match(/\.([a-z0-9]+)$/i)?.[1] || 'mp4').toLowerCase();
+    files.push([`dub_video.${ext}`, MK.file]);
+    msg.textContent = 'Packing the zip…';
+    const zip = await makeZip(files.map(([n, b]) => [`${dir}/${n}`, b]));
+    msg.textContent = `Done: ${lines.length} line${lines.length > 1 ? 's' : ''}, ${(zip.size / 1e6).toFixed(1)} MB.`;
+    return { zip, name: `${slug(title)}.zip` };
+  } catch (e) { console.error(e); msg.textContent = 'Something went wrong while building: ' + e.message; return null; }
+  finally { mkBusy = false; $('#mkPlayNow').disabled = $('#mkDownload').disabled = false; }
+}
+$('#mkDownload').onclick = async () => { const r = await mkBuild(); if (r) { download(r.zip, r.name); toast('Send this zip to your friends so they can join with the same pack.', 6000); } };
+$('#mkPlayNow').onclick = async () => {
+  if (!myName()) { go('home'); needName(); return; }
+  const r = await mkBuild(); if (!r) return;
+  const added = await loadZip(new File([r.zip], r.name));
+  if (!added.length) return toast('The pack didn\'t load. Tell me what you see in the console (F12).');
+  added[0].madeZip = r;
+  hostPack(added[0]);
+};
 
 go('home');
 </script>
