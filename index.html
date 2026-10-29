@@ -1153,6 +1153,7 @@ const curLine = () => S.pack.lines[S.idx];
 const hasName = l => l.caption.toLowerCase().includes(l.chars[0].toLowerCase());
 
 function renderBooth() {
+  backBuf(S.pack).catch(() => {}); preloadVideo();   // warm up music + video for In scene
   $('#filterSel').value = S.filter;
   const vis = visibleLines();
   if (!vis.length && S.filter === 'mine') { S.filter = 'all'; $('#filterSel').value = 'all'; toast('You don\'t have a role, so here are all the lines. You can record the open ones.'); }
@@ -1187,6 +1188,7 @@ async function renderLine() {
   await refBuf(line).catch(() => null);            // the window needs the original's length
   if (curLine() !== line || recState !== 'idle') return;
   drawWave(line);
+  if (V.ok && !P.running && S.screen === 'record') vSeek(Math.max(0, (line.ts[0] ?? 0) - SCENE_LEAD));   // park the video on this line's clip
   const url = await lineImg(line);
   if (curLine() === line) $('#lineImg').src = url;
 }
@@ -1256,15 +1258,16 @@ function playTake() {
   stopPreview(); stopScene(); ac(); playBuf(line.take.buf, 1.2);
 }
 // Play the scene around this line (video + music + everyone's voices) on the booth screen.
+const SCENE_LEAD = 0.8;   // In scene starts this much before the line (the video may land a bit later)
 async function playInScene() {
   const line = curLine(); if (!line || recState !== 'idle') return;
   stopPreview(); stopScene(); ac();
   const sc = $('#stageCv'); fitCanvas(sc); sc.hidden = false; P.canvas = sc;
   drawLoading(sc, 'Loading scene…');
-  await withTimeout(Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null), ...S.pack.lines.map(l => refBuf(l).catch(() => null))]), 20000);
+  await withTimeout(Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null), refBuf(line).catch(() => null)]), 20000);
   if (curLine() !== line || sc.hidden) return;   // moved on while it loaded
   const ts = line.ts[0] ?? 0, len = (line.take?.buf || line.refBuf)?.duration || 2;
-  startShow(Math.max(0, ts - 3), { canvas: $('#stageCv'), until: ts + len + 1.5, captions: false, fill: true, onEnd: () => { $('#stageCv').hidden = true; } });
+  startShow(Math.max(0, ts - SCENE_LEAD), { canvas: sc, until: ts + len + 0.4, captions: false, only: line, onEnd: () => { sc.hidden = true; } });   // just this line's own clip
 }
 function stopScene() { if (P.canvas === $('#stageCv')) stopShow(true); $('#stageCv').hidden = true; }
 
@@ -1513,15 +1516,24 @@ function vSeek(t) { try { V.el.currentTime = vClampT(t); } catch {} }
 function vPlay() { try { const r = V.el.play(); r?.catch?.(() => {}); } catch {} }
 function vPause() { try { V.el?.pause(); } catch {} }
 function vRate(r) { try { if (V.el && Math.abs((V.el.playbackRate || 1) - r) > 0.02) V.el.playbackRate = r; } catch {} }
-// Jump the video to t and wait until the frame is actually there (HD .ogv can take a moment).
+// Jump the video to t and wait until it settles. HD .ogv lands a little off (up to ~0.5s),
+// so we accept where it lands and the caller starts the sound from that exact spot.
 function vSeekWait(t, timeout = 8000) {
   return new Promise(res => {
-    if (!V.ok) return res();
+    if (!V.ok) return res(t);
     vPause(); vRate(1);
     const target = vClampT(t), t0 = performance.now();
-    if (Math.abs(vTime() - target) < 0.08 && !vSeeking()) return res();
+    if (!vSeeking() && Math.abs(vTime() - target) < 0.6) return res(vTime());   // already parked here
     vSeek(target);
-    const chk = () => (!vSeeking() && Math.abs(vTime() - target) < 0.35) || performance.now() - t0 > timeout ? res() : setTimeout(chk, 40);
+    let last = -1, steady = 0;
+    const chk = () => {
+      const now = vTime();
+      if (!vSeeking() && Math.abs(now - target) < 1.5 && Math.abs(now - last) < 0.01) { if (++steady >= 2) return res(now); }
+      else steady = 0;
+      last = now;
+      if (performance.now() - t0 > timeout) return res(target);
+      setTimeout(chk, 40);
+    };
     setTimeout(chk, 60);
   });
 }
@@ -1600,8 +1612,9 @@ async function startShow(offset = 0, opts = {}) {
   P.canvas = canvas;
   if (V.ok) {                                    // get the right frame on screen BEFORE the sound starts
     drawLoading(canvas, 'Loading scene…');
-    await vSeekWait(offset);
-    if (my !== showToken) return;                // stopped / restarted while we waited
+    const landed = await vSeekWait(offset);
+    if (my !== showToken) return;
+    if (Math.abs(landed - offset) < 1.5) offset = landed;   // start the sound where the video actually is                // stopped / restarted while we waited
   }
   const t0 = AC.currentTime + 0.1;
   const bg = AC.createGain(); bg.gain.value = +$('#volBack').value; bg.connect(master);
@@ -1614,7 +1627,7 @@ async function startShow(offset = 0, opts = {}) {
   };
   if (p.backBuf && offset < p.backBuf.duration) add(p.backBuf, bg, -offset);
   const fill = opts.fill ?? $('#optFill').checked;
-  for (const l of p.lines) {
+  for (const l of (opts.only ? [opts.only] : p.lines)) {   // In scene: only this line's voice
     const buf = l.take?.buf || (fill ? l.refBuf : null);
     if (!buf) continue;
     for (const ts of l.ts) if (ts - offset + buf.duration > 0) add(buf, vg, ts - offset);
