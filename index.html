@@ -193,7 +193,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v29.10-d</span></div>
+  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v31.10-a</span></div>
   <div class="steps" id="steps">
     <button data-phase="lobby">Lobby</button><span class="sep">›</span>
     <button data-phase="record">Booth</button><span class="sep">›</span>
@@ -1428,7 +1428,7 @@ async function playOriginal() {
   await withTimeout(Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null)]), 20000);
   if (curLine() !== line || sc.hidden) return;   // moved on while it loaded
   const ts = line.ts[0] ?? 0;
-  startShow(Math.max(0, ts - 0.3), { canvas: sc, until: ts + ref.duration + 0.3, captions: false, only: line, useRef: true,
+  startShow(Math.max(0, ts - 0.3), { canvas: sc, until: ts + ref.duration + END_PAD, captions: false, only: line, useRef: true,
     onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });
 }
 function playTake() {
@@ -1437,6 +1437,7 @@ function playTake() {
 }
 // Play the scene around this line (video + music + everyone's voices) on the booth screen.
 const SCENE_LEAD = 0.8;   // In scene starts this much before the line (the video may land a bit later)
+const END_PAD = 0.1;      // how long a clip keeps going after the line ends (kept tiny on purpose)
 async function playInScene() {
   const line = curLine(); if (!line || recState !== 'idle') return;
   stopPreview(); stopScene(); ac();
@@ -1445,7 +1446,7 @@ async function playInScene() {
   await withTimeout(Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null), refBuf(line).catch(() => null)]), 20000);
   if (curLine() !== line || sc.hidden) return;   // moved on while it loaded
   const ts = line.ts[0] ?? 0, len = (line.take?.buf || line.refBuf)?.duration || 2;
-  startShow(Math.max(0, ts - SCENE_LEAD), { canvas: sc, until: ts + len + 0.4, captions: false, only: line, onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });   // just this line's own clip
+  startShow(Math.max(0, ts - SCENE_LEAD), { canvas: sc, until: ts + len + END_PAD, captions: false, only: line, onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });   // just this line's own clip
 }
 function stopScene() { if (P.canvas === $('#stageCv')) stopShow(true); $('#stageCv').hidden = true; $('#stageVid').hidden = true; }
 
@@ -1708,7 +1709,7 @@ async function toggleRec() {
     fitCanvas(sc); sc.hidden = false; drawLoading(sc, 'Getting the scene ready…');
     await Promise.all([prep, withSnd ? backBuf(S.pack).catch(() => null) : null]);
     if (cancelCount || curLine() !== line) { stopScene(); recState = 'idle'; setRecUI(); return; }
-    await startShow(ts, { canvas: sc, until: ts + win + 0.35, captions: false, only: line, useRef: true, silent: !withSnd,
+    await startShow(ts, { canvas: sc, until: ts + win + END_PAD, captions: false, only: line, useRef: true, silent: !withSnd,
       onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });
   }
   const chunks = [];
@@ -1728,7 +1729,7 @@ async function toggleRec() {
     $('#winTime').textContent = `${Math.min(el, win).toFixed(1)} / ${win.toFixed(1)}s`;
     drawWave(line, el);
   }, 50);
-  recTimer = setTimeout(stopRec, (win + 0.35) * 1000);   // hard stop at the end of the window
+  recTimer = setTimeout(stopRec, (win + END_PAD) * 1000);   // stop right when the clip ends
 }
 function stopRec() {
   if (recState !== 'rec') return;
