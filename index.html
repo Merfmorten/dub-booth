@@ -193,7 +193,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v31.10-a</span></div>
+  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v09.11-a</span></div>
   <div class="steps" id="steps">
     <button data-phase="lobby">Lobby</button><span class="sep">›</span>
     <button data-phase="record">Booth</button><span class="sep">›</span>
@@ -1417,27 +1417,32 @@ function step(d) {
   if (!nx) return;
   stopPreview(); stopScene(); S.idx = S.pack.lines.indexOf(nx); renderLine(); renderList();
 }
+// Timing for the booth's stage clips (seconds)
+const ORIG_LEAD = 0.3;    // Original starts this much before the line
+const SCENE_LEAD = 0.8;   // In scene starts this much before the line (the video may land a bit later)
+const END_PAD = 0.1;      // how long a clip keeps going after the line ends (kept tiny on purpose)
+const REC_TAIL = 0.5;     // the mic keeps recording this much longer, so a late finish isn't cut (silence gets trimmed)
+function hideStage() { $('#stageCv').hidden = true; $('#stageVid').hidden = true; }
 // Play the original line: its clip on the stage with the original voice and the music.
 async function playOriginal() {
   const line = curLine(); if (!line?.audio || recState !== 'idle') return;
   stopPreview(); stopScene(); ac();
   const ref = await refBuf(line).catch(() => null);
   if (!ref) return toast('Could not play this line\'s audio.');
+  if (curLine() !== line || recState !== 'idle') return;   // moved on while the voice loaded
   const sc = $('#stageCv'); fitCanvas(sc); sc.hidden = false; P.canvas = sc;
   drawLoading(sc, 'Loading scene…');
   await withTimeout(Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null)]), 20000);
   if (curLine() !== line || sc.hidden) return;   // moved on while it loaded
   const ts = line.ts[0] ?? 0;
-  startShow(Math.max(0, ts - 0.3), { canvas: sc, until: ts + ref.duration + END_PAD, captions: false, only: line, useRef: true,
-    onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });
+  startShow(Math.max(0, ts - ORIG_LEAD), { canvas: sc, until: ts + ref.duration + END_PAD, captions: false, only: line, useRef: true,
+    onEnd: hideStage });
 }
 function playTake() {
   const line = curLine(); if (!line?.take || recState !== 'idle') return;
   stopPreview(); stopScene(); ac(); playBuf(line.take.buf, 1.2);
 }
 // Play the scene around this line (video + music + everyone's voices) on the booth screen.
-const SCENE_LEAD = 0.8;   // In scene starts this much before the line (the video may land a bit later)
-const END_PAD = 0.1;      // how long a clip keeps going after the line ends (kept tiny on purpose)
 async function playInScene() {
   const line = curLine(); if (!line || recState !== 'idle') return;
   stopPreview(); stopScene(); ac();
@@ -1446,9 +1451,9 @@ async function playInScene() {
   await withTimeout(Promise.all([loadVideo(S.pack).catch(() => null), backBuf(S.pack).catch(() => null), refBuf(line).catch(() => null)]), 20000);
   if (curLine() !== line || sc.hidden) return;   // moved on while it loaded
   const ts = line.ts[0] ?? 0, len = (line.take?.buf || line.refBuf)?.duration || 2;
-  startShow(Math.max(0, ts - SCENE_LEAD), { canvas: sc, until: ts + len + END_PAD, captions: false, only: line, onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });   // just this line's own clip
+  startShow(Math.max(0, ts - SCENE_LEAD), { canvas: sc, until: ts + len + END_PAD, captions: false, only: line, onEnd: hideStage });   // just this line's own clip
 }
-function stopScene() { if (P.canvas === $('#stageCv')) stopShow(true); $('#stageCv').hidden = true; $('#stageVid').hidden = true; }
+function stopScene() { if (P.canvas === $('#stageCv')) stopShow(true); hideStage(); }
 
 /* ---- overlap waveform: original (pink) and your take (blue) on one timeline, live while recording ---- */
 function leadOf(d, sr) {                      // seconds until the first real sound
@@ -1710,7 +1715,7 @@ async function toggleRec() {
     await Promise.all([prep, withSnd ? backBuf(S.pack).catch(() => null) : null]);
     if (cancelCount || curLine() !== line) { stopScene(); recState = 'idle'; setRecUI(); return; }
     await startShow(ts, { canvas: sc, until: ts + win + END_PAD, captions: false, only: line, useRef: true, silent: !withSnd,
-      onEnd: () => { sc.hidden = true; $('#stageVid').hidden = true; } });
+      onEnd: hideStage });
   }
   const chunks = [];
   mr = new MediaRecorder(recDest.stream);
@@ -1729,7 +1734,7 @@ async function toggleRec() {
     $('#winTime').textContent = `${Math.min(el, win).toFixed(1)} / ${win.toFixed(1)}s`;
     drawWave(line, el);
   }, 50);
-  recTimer = setTimeout(stopRec, (win + END_PAD) * 1000);   // stop right when the clip ends
+  recTimer = setTimeout(stopRec, (win + REC_TAIL) * 1000);   // clip ends at END_PAD; the mic runs a little longer
 }
 function stopRec() {
   if (recState !== 'rec') return;
