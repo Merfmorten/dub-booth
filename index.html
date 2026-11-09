@@ -193,7 +193,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v09.11-a</span></div>
+  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v09.11-b</span></div>
   <div class="steps" id="steps">
     <button data-phase="lobby">Lobby</button><span class="sep">›</span>
     <button data-phase="record">Booth</button><span class="sep">›</span>
@@ -1855,7 +1855,8 @@ function vSeekWait(t, timeout = 8000) {
     let last = -1, steady = 0;
     const chk = () => {
       const now = vTime();
-      if (!vSeeking() && Math.abs(now - target) < 1.5 && Math.abs(now - last) < 0.01) { if (++steady >= 2) return res(now); }
+      // settled: near the target -> go quickly; parked further off (ogv lands on a keyframe) -> give it ~0.5s, then go anyway
+      if (!vSeeking() && Math.abs(now - last) < 0.01) { if (++steady >= (Math.abs(now - target) < 1.5 ? 2 : 12)) return res(now); }
       else steady = 0;
       last = now;
       if (performance.now() - t0 > timeout) return res(target);
@@ -1960,8 +1961,11 @@ async function startShow(offset = 0, opts = {}) {
   P.canvas = canvas;
   if (V.ok) {                                    // get the right frame on screen BEFORE the sound starts
     drawLoading(canvas, 'Loading scene…');
+    P.starting = true;
+    if (canvas === $('#cv')) $('#pPlay').textContent = '… Loading';
     const landed = await vSeekWait(offset);
     if (my !== showToken) return;
+    P.starting = false;
     if (Math.abs(landed - offset) < 1.5) offset = landed;   // start the sound where the video actually is
   }
   P.useEl = mountVideo(canvas === $('#stageCv') ? $('#stageVid') : $('#premVid'));
@@ -1988,7 +1992,7 @@ async function startShow(offset = 0, opts = {}) {
   loop();
 }
 function stopShow(quiet) {
-  showToken++;
+  showToken++; P.starting = false;
   if (P.running) P.offset = Math.min(showTime(), P.dur);
   const wasRunning = P.running;
   P.running = false;
@@ -2071,7 +2075,7 @@ function renderPremNext() {
 }
 function togglePlay() {
   if (!S.isHost || P.exporting) return;
-  if (P.running && P.canvas === $('#cv')) { stopShow(); broadcast({ t: 'stop', offset: P.offset }); }
+  if ((P.running || P.starting) && P.canvas === $('#cv')) { stopShow(); broadcast({ t: 'stop', offset: P.offset }); }
   else { const off = P.offset >= P.dur - 0.1 ? 0 : P.offset; startShow(off); broadcast({ t: 'play', offset: off }); }
 }
 function remotePlay(offset) {
