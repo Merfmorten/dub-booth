@@ -193,7 +193,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v09.11-b</span></div>
+  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v09.11-c</span></div>
   <div class="steps" id="steps">
     <button data-phase="lobby">Lobby</button><span class="sep">›</span>
     <button data-phase="record">Booth</button><span class="sep">›</span>
@@ -1485,6 +1485,29 @@ function matchPct(line) {                     // same measure the judges use: le
   }
   return t._pct;
 }
+// Live mic while recording: a smooth glowing ribbon that grows behind the playhead.
+function drawLiveWave(g, x, pps, mid, H) {
+  g.fillStyle = 'rgba(63,216,255,.05)'; g.fillRect(0, 0, x, H);              // the part you've already recorded
+  if (recLive.length > 1) {
+    let pk = 0.15; for (const r of recLive) pk = Math.max(pk, r.a);           // floor keeps quiet rooms from looking huge
+    const k = mid * 0.9 / pk;
+    const pts = recLive.map(r => [r.t * pps, Math.max(1.5, r.a * k)]);
+    const edge = sign => {                                                     // smooth curve through the points
+      for (let i = 1; i < pts.length; i++) {
+        const [x0, a0] = pts[i - 1], [x1, a1] = pts[i];
+        g.quadraticCurveTo(x0, mid - sign * a0, (x0 + x1) / 2, mid - sign * (a0 + a1) / 2);
+      }
+      const [xl, al] = pts.at(-1); g.lineTo(xl, mid - sign * al);
+    };
+    const grad = g.createLinearGradient(0, mid - mid * 0.9, 0, mid + mid * 0.9);
+    grad.addColorStop(0, '#b8f4ff'); grad.addColorStop(0.5, '#3fd8ff'); grad.addColorStop(1, '#b8f4ff');
+    g.beginPath(); g.moveTo(pts[0][0], mid);
+    edge(1); pts.reverse(); g.lineTo(pts[0][0], mid + pts[0][1]); edge(-1); g.closePath();   // top edge, then back along the bottom
+    g.save(); g.shadowColor = '#3fd8ff'; g.shadowBlur = 14; g.globalAlpha = 0.9; g.fillStyle = grad; g.fill(); g.restore();
+  }
+  g.save(); g.shadowColor = '#ff3d57'; g.shadowBlur = 10; g.fillStyle = '#ff3d57';   // playhead
+  g.fillRect(x - 1, 0, 2, H); g.beginPath(); g.arc(x, 6, 5, 0, Math.PI * 2); g.fill(); g.restore();
+}
 function drawWave(line, elapsed = null) {
   const cv = $('#wave'), g = cv.getContext('2d'), W = cv.width, H = cv.height, mid = H / 2 - 8;
   g.fillStyle = '#0a080d'; g.fillRect(0, 0, W, H);
@@ -1503,17 +1526,10 @@ function drawWave(line, elapsed = null) {
   for (let s = 0; s <= span; s++) { g.fillStyle = '#211c29'; g.fillRect(Math.round(s * pps), 0, 1, H); g.fillStyle = '#5a4f66'; g.fillText(s + 's', s * pps + 4, H - 2); }
   g.fillStyle = '#2c2636'; g.fillRect(0, mid, W, 1);
   g.fillStyle = 'rgba(255,255,255,.035)'; g.fillRect(win * pps, 0, W, H);
-  waveBars(g, line._mono, sr, 0, pps, mid, '#ff4fd8', 0.55);
+  waveBars(g, line._mono, sr, 0, pps, mid, '#ff4fd8', elapsed == null ? 0.55 : 0.3);   // dimmed while recording so your voice stands out
   if (take) waveBars(g, take.getChannelData(0), take.sampleRate, line._lead, pps, mid, '#3fd8ff', 0.75);   // lined up with the original's first word
-  if (elapsed != null) {                       // live mic, drawn as you speak
-    let pk = 0.05; for (const r of recLive) pk = Math.max(pk, -r.mn, r.mx);
-    const k = mid * 0.9 / pk, w = Math.max(2, 0.05 * pps);
-    g.fillStyle = '#3fd8ff'; g.globalAlpha = 0.85;
-    for (const r of recLive) g.fillRect(r.t * pps, mid - r.mx * k, w, Math.max(1, (r.mx - r.mn) * k));
-    g.globalAlpha = 1;
-    const x = clamp(elapsed, 0, span) * pps;
-    g.fillStyle = '#ff3d57'; g.fillRect(x - 1, 0, 3, H);
-  } else {
+  if (elapsed != null) drawLiveWave(g, elapsed * pps, pps, mid, H);
+  else {
     const pct = matchPct(line);
     $('#winState').textContent = line.take ? `Take saved · ${line.take.buf.duration.toFixed(1)}s` : 'Ready to record';
     $('#winTime').textContent = pct == null ? '' : `match ${pct}%`;
@@ -1729,11 +1745,11 @@ async function toggleRec() {
   recTick = setInterval(() => {
     const el = (performance.now() - t0) / 1000;
     analyser.getFloatTimeDomainData(tdb);
-    let mn = 0, mx = 0; for (const v of tdb) { if (v < mn) mn = v; else if (v > mx) mx = v; }
-    recLive.push({ t: el, mn, mx });
+    let a = 0; for (const v of tdb) a = Math.max(a, Math.abs(v));
+    recLive.push({ t: el, a });
     $('#winTime').textContent = `${Math.min(el, win).toFixed(1)} / ${win.toFixed(1)}s`;
     drawWave(line, el);
-  }, 50);
+  }, 20);   // faster than the mic snapshot length (~21ms), so no sound is skipped
   recTimer = setTimeout(stopRec, (win + REC_TAIL) * 1000);   // clip ends at END_PAD; the mic runs a little longer
 }
 function stopRec() {
