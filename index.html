@@ -193,7 +193,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:14px}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v09.11-c</span></div>
+  <div class="brand"><span class="onair" id="onair">ON AIR</span><span>DUB BOOTH</span><span class="ver" title="Version of the site you have open">v09.11-d</span></div>
   <div class="steps" id="steps">
     <button data-phase="lobby">Lobby</button><span class="sep">›</span>
     <button data-phase="record">Booth</button><span class="sep">›</span>
@@ -667,7 +667,11 @@ async function addGroups(groups) {
   for (const [dir, files] of groups) {
     const isJson = [...files.keys()].some(k => /^pack\.json$/i.test(k));
     const isIni = [...files.keys()].some(k => /^_?pack_info\.ini$/i.test(k));
-    if (!isJson && !isIni) continue;
+    // packs without a _pack_info.ini still count if a line file sits next to its own audio (e.g. 01_Name.ini + 01_Name.wav)
+    const names = [...files.keys()].map(k => k.toLowerCase());
+    const isLoose = !isJson && !isIni && names.some(k => /\.(txt|ini)$/.test(k) && !k.startsWith('_') &&
+      AUDIO_EXT.some(e => names.includes(k.slice(0, -4) + '.' + e)));
+    if (!isJson && !isIni && !isLoose) continue;
     try {
       const p = isJson ? await buildJsonPack(dir, files) : await buildPack(dir, files);
       const dupe = S.packs.find(x => x.fp === p.fp);
@@ -727,8 +731,7 @@ async function buildPack(dir, files) {
   const findBase = (base, exts) => { for (const e of exts) { const f = find(base + '.' + e); if (f) return f; } return null; };
   const readText = async f => decodeText(await (await f.get()).arrayBuffer());
   const infoFile = [...lower.values()].find(f => /^_?pack_info\.ini$/i.test(f.name));
-  if (!infoFile) throw new Error('no _pack_info.ini');
-  const infoIni = parseIni(await readText(infoFile));
+  const infoIni = infoFile ? parseIni(await readText(infoFile)) : {};   // optional: without it the folder name is the title
   const info = infoIni.data || infoIni._ || {};
   const lines = [], warnings = [];
   for (const [lk, f] of lower) {
@@ -1184,7 +1187,9 @@ async function readPackFiles(files, msgEl) {
     msgEl.textContent = `Reading ${f.name}…`;
     try { out.push(...await loadZip(f)); } catch (e) { console.error(e); toast(`${f.name} isn't a readable zip.`); }
   }
-  msgEl.textContent = out.length ? '' : 'No pack found in there (a pack has a _pack_info.ini file).';
+  const none = 'No pack found in there. A pack needs line files (like 01_Name.txt or .ini) next to their audio (01_Name.wav).';
+  msgEl.textContent = out.length ? '' : none;
+  if (!out.length) toast(none, 8000);   // the little message under the drop box is easy to miss
   return out;
 }
 async function hostGotPacks(added) {
